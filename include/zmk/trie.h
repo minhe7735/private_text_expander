@@ -4,14 +4,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef TRIE_ALPHABET_SIZE
-#define TRIE_ALPHABET_SIZE 36
-#endif
-
 struct text_expander_data;
+struct trie_node;
+
+struct trie_child_link {
+    uint8_t index;
+    struct trie_node *child_node;
+    struct trie_child_link *next_sibling;
+};
 
 struct trie_node {
-  struct trie_node *children[TRIE_ALPHABET_SIZE];
+  struct trie_child_link *children;
   char *expanded_text;
   bool is_terminal;
 };
@@ -29,7 +32,5 @@ int char_to_trie_index(char c);
 const char *trie_get_expanded_text(struct trie_node *node);
 
 struct trie_node *trie_get_node_for_key(struct trie_node *root, const char *key);
-
-uint16_t trie_get_expanded_text_len_from_ptr(const char *expanded_text_ptr);
 
 #endif

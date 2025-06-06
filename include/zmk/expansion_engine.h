@@ -13,10 +13,8 @@ enum expansion_state {
   EXPANSION_STATE_BACKSPACE_RELEASE,
   EXPANSION_STATE_START_TYPING,
   EXPANSION_STATE_TYPE_CHAR_START,
-  EXPANSION_STATE_TYPE_CHAR_SHIFT_PRESS,
   EXPANSION_STATE_TYPE_CHAR_KEY_PRESS,
   EXPANSION_STATE_TYPE_CHAR_KEY_RELEASE,
-  EXPANSION_STATE_TYPE_CHAR_SHIFT_RELEASE,
   EXPANSION_STATE_FINISH,
 };
 
@@ -29,6 +27,7 @@ struct expansion_work {
   enum expansion_state state;
   uint32_t current_keycode;
   bool current_char_needs_shift;
+  bool shift_mod_active;
 };
 
 void expansion_work_handler(struct k_work *work);

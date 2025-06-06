@@ -43,7 +43,7 @@ static const char *find_expansion(const char *short_code) {
 }
 
 static void reset_current_short(void) {
-  LOG_DBG("Resetting current short code");
+  LOG_DBG("Resetting current short code. Was: '%s'", expander_data.current_short);
   memset(expander_data.current_short, 0, MAX_SHORT_LEN);
   expander_data.current_short_len = 0;
 }
@@ -54,7 +54,7 @@ static void add_to_current_short(char c) {
     expander_data.current_short[expander_data.current_short_len] = '\0';
     LOG_DBG("Added '%c' to short code, now: '%s'", c, expander_data.current_short);
   } else {
-    LOG_WRN("Short code buffer full, resetting");
+    LOG_WRN("Short code buffer full, resetting. Current short: '%s'", expander_data.current_short);
     reset_current_short();
     if (IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR)) {
         if (MAX_SHORT_LEN > 1) {
@@ -66,7 +66,7 @@ static void add_to_current_short(char c) {
   }
 }
 
-static int text_expander_load_expansion_internal(const char *short_code, const char *expanded_text) {
+static int text_expander_load_expansion(const char *short_code, const char *expanded_text) {
   LOG_DBG("Loading expansion: '%s' -> '%s'", short_code, expanded_text);
   if (!short_code || !expanded_text) {
     LOG_ERR("Short code or expanded text is NULL");
@@ -75,9 +75,12 @@ static int text_expander_load_expansion_internal(const char *short_code, const c
   size_t short_len = strlen(short_code);
   size_t expanded_len = strlen(expanded_text);
 
-  if (short_len == 0 || short_len >= MAX_SHORT_LEN || expanded_len == 0 ||
-      expanded_len >= MAX_EXPANDED_LEN) {
-    LOG_ERR("Invalid length for short code or expanded text");
+  if (short_len == 0 || short_len >= MAX_SHORT_LEN) {
+    LOG_ERR("Invalid length for short code. Short: %zu/%d", short_len, MAX_SHORT_LEN);
+    return -EINVAL;
+  }
+   if (expanded_len == 0 || expanded_len >= MAX_EXPANDED_LEN) {
+    LOG_ERR("Invalid length for expanded text. Expanded: %zu/%d", expanded_len, MAX_EXPANDED_LEN);
     return -EINVAL;
   }
   for (int i = 0; short_code[i] != '\0'; i++) {
@@ -93,7 +96,7 @@ static int text_expander_load_expansion_internal(const char *short_code, const c
   if (ret == 0) {
     if (!is_update) {
       expander_data.expansion_count++;
-      LOG_INF("Loaded new expansion, count: %d", expander_data.expansion_count);
+      LOG_INF("Loaded new expansion ('%s'), count: %d", short_code, expander_data.expansion_count);
     } else {
       LOG_INF("Updated existing expansion for '%s'", short_code);
     }
@@ -111,10 +114,11 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
     return ZMK_EV_EVENT_BUBBLE;
   }
   if (k_mutex_lock(&expander_data.mutex, K_NO_WAIT) != 0) {
+    LOG_WRN("Failed to lock mutex in keycode listener, bubbling event.");
     return ZMK_EV_EVENT_BUBBLE;
   }
   uint16_t keycode = ev->keycode;
-  LOG_DBG("Keycode state changed: %d", keycode);
+  LOG_DBG("Keycode state changed: %d (pressed: %d)", keycode, ev->state);
   bool current_short_content_changed = false;
   char char_that_caused_change = 0;
 
@@ -133,10 +137,11 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
     current_short_content_changed = true;
   } else if (keycode == HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE) {
     if (expander_data.current_short_len > 0) {
+      LOG_DBG("Backspace pressed, removing char from short code.");
       expander_data.current_short_len--;
       expander_data.current_short[expander_data.current_short_len] = '\0';
       current_short_content_changed = true;
-      LOG_DBG("Backspace, short code now: '%s'", expander_data.current_short);
+      LOG_DBG("Short code now: '%s'", expander_data.current_short);
     }
   }
 
@@ -145,7 +150,7 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
       struct trie_node *node =
           trie_get_node_for_key(expander_data.root, expander_data.current_short);
       if (node == NULL) {
-        LOG_DBG("Aggressive reset triggered for '%s'", expander_data.current_short);
+        LOG_INF("Aggressive reset: '%s' is not a prefix. Resetting.", expander_data.current_short);
         if (IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR)) {
             reset_current_short();
             add_to_current_short(char_that_caused_change);
@@ -181,7 +186,7 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
                (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_TAB) &&
                 keycode == HID_USAGE_KEY_KEYBOARD_TAB))) {
     if (expander_data.current_short_len > 0) {
-      LOG_DBG("Non-alphanumeric key pressed, resetting short code");
+      LOG_DBG("Non-alphanumeric or modifier key pressed (keycode: %d), resetting short code", keycode);
       reset_current_short();
     }
   }
@@ -191,52 +196,41 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
 
 static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *binding,
                                                 struct zmk_behavior_binding_event binding_event) {
-  LOG_DBG("Binding pressed");
+  LOG_INF("Expansion trigger pressed, current short: '%s'", expander_data.current_short);
   k_mutex_lock(&expander_data.mutex, K_FOREVER);
   if (expander_data.current_short_len > 0) {
     const char *expanded_ptr = find_expansion(expander_data.current_short);
     if (expanded_ptr) {
-      char expanded_copy[MAX_EXPANDED_LEN];
       char short_copy[MAX_SHORT_LEN];
-      uint16_t expanded_len_val = trie_get_expanded_text_len_from_ptr(expanded_ptr);
-
-      if (expanded_len_val > 0 && expanded_len_val < MAX_EXPANDED_LEN) {
-          memcpy(expanded_copy, expanded_ptr, expanded_len_val);
-          expanded_copy[expanded_len_val] = '\0';
-      } else if (expanded_len_val >= MAX_EXPANDED_LEN) {
-          strncpy(expanded_copy, expanded_ptr, sizeof(expanded_copy) - 1);
-          expanded_copy[sizeof(expanded_copy) - 1] = '\0';
-      } else {
-          expanded_copy[0] = '\0';
-      }
-
       strncpy(short_copy, expander_data.current_short, sizeof(short_copy) - 1);
       short_copy[sizeof(short_copy) - 1] = '\0';
-      LOG_INF("Found expansion: '%s' -> '%s'", short_copy, expanded_copy);
 
-      uint8_t len_to_delete_default = expander_data.current_short_len;
-      const char *text_for_engine = expanded_copy;
-      uint8_t final_len_to_delete = len_to_delete_default;
-      size_t short_len_val_for_cmp = strlen(short_copy);
+      LOG_INF("Found expansion: '%s' -> '%s'", short_copy, expanded_ptr);
 
-      if (short_len_val_for_cmp > 0 && expanded_len_val >= short_len_val_for_cmp && strncmp(expanded_copy, short_copy, short_len_val_for_cmp) == 0) {
-          text_for_engine = expanded_copy + short_len_val_for_cmp;
-          final_len_to_delete = 0;
+      size_t short_len = strlen(short_copy);
+      uint8_t len_to_delete = short_len;
+      const char *text_for_engine = expanded_ptr;
+
+      if (strncmp(expanded_ptr, short_copy, short_len) == 0) {
+          text_for_engine = expanded_ptr + short_len;
+          len_to_delete = 0;
           LOG_DBG("Optimized expansion, typing: '%s'", text_for_engine);
       }
 
       reset_current_short();
       k_mutex_unlock(&expander_data.mutex);
-      int ret = start_expansion(short_copy, text_for_engine, final_len_to_delete);
+      
+      int ret = start_expansion(short_copy, text_for_engine, len_to_delete);
       if (ret < 0) {
         LOG_ERR("Failed to start expansion: %d", ret);
-        return ZMK_BEHAVIOR_OPAQUE;
       }
       return ZMK_BEHAVIOR_OPAQUE;
     } else {
-      LOG_DBG("No expansion found for '%s', resetting", expander_data.current_short);
+      LOG_INF("No expansion found for '%s', resetting", expander_data.current_short);
       reset_current_short();
     }
+  } else {
+      LOG_DBG("Expansion triggered, but current short code is empty.");
   }
   k_mutex_unlock(&expander_data.mutex);
   return ZMK_BEHAVIOR_TRANSPARENT;
@@ -261,30 +255,31 @@ static int load_expansions_from_config(const struct text_expander_config *config
     LOG_INF("No expansions to load from config");
     return 0;
   }
-  LOG_INF("Loading %d expansions from config", config->expansion_count);
+  LOG_INF("Loading %zu expansions from config", config->expansion_count);
   int loaded_count = 0;
   for (size_t i = 0; i < config->expansion_count; i++) {
     const struct text_expander_expansion *exp = &config->expansions[i];
     if (!exp->short_code || !exp->expanded_text) {
-      LOG_WRN("Skipping expansion with NULL short code or text");
+      LOG_WRN("Skipping expansion with NULL short code or text at index %zu", i);
       continue;
     }
     if (exp->short_code[0] == '\0' || exp->expanded_text[0] == '\0') {
-      LOG_WRN("Skipping empty expansion");
+      LOG_WRN("Skipping empty expansion at index %zu", i);
       continue;
     }
-    int ret = text_expander_load_expansion_internal(exp->short_code, exp->expanded_text);
+    int ret = text_expander_load_expansion(exp->short_code, exp->expanded_text);
     if (ret == 0) {
       loaded_count++;
     }
   }
+  LOG_INF("Successfully loaded %d expansions from config.", loaded_count);
   return loaded_count;
 }
 
 static int text_expander_init(const struct device *dev) {
   const struct text_expander_config *config = dev->config;
   if (!zmk_text_expander_global_initialized) {
-    LOG_INF("Initializing text expander module");
+    LOG_INF("Initializing text expander module (first instance)");
     k_mutex_init(&expander_data.mutex);
     expander_data.node_pool_used = 0;
     expander_data.text_pool_used = 0;
@@ -305,9 +300,9 @@ static int text_expander_init(const struct device *dev) {
     }
 
     int loaded_count = load_expansions_from_config(config);
-    if (loaded_count == 0 && expander_data.expansion_count == 0) {
+    if (loaded_count == 0 && expander_data.expansion_count == 0 && !IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION)) {
       LOG_INF("No expansions loaded, adding default 'exp' -> 'expanded'");
-      text_expander_load_expansion_internal("exp", "expanded");
+      text_expander_load_expansion("exp", "expanded");
     }
 
     zmk_text_expander_global_initialized = true;

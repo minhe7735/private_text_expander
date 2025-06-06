@@ -32,8 +32,11 @@ struct text_expander_data {
   uint8_t current_short_len;
   uint8_t expansion_count;
   struct k_mutex mutex;
+
   struct trie_node node_pool[MAX_EXPANSIONS * MAX_SHORT_LEN];
   uint16_t node_pool_used;
+  struct trie_child_link child_link_pool[MAX_EXPANSIONS * MAX_SHORT_LEN];
+  uint16_t child_link_pool_used;
   char text_pool[MAX_EXPANSIONS * MAX_EXPANDED_LEN];
   uint16_t text_pool_used;
 };

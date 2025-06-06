@@ -3,87 +3,84 @@ mainmenu "ZMK Text Expander"
 menu "ZMK Text Expander"
 
 config ZMK_TEXT_EXPANDER
-    bool "Text Expander"
+    bool "Enable Text Expander Behavior"
     default n
     help
-      Enable the text expander module. This allows you to define short codes
-      that expand into longer strings of text, saving you time and effort for
-      frequently typed phrases.
+      Enable the text expander module to define and use text expansions.
 
 if ZMK_TEXT_EXPANDER
 
 config ZMK_TEXT_EXPANDER_MAX_EXPANSIONS
     int "Maximum number of expansions"
     default 10
+    range 1 256
     help
-      Specifies the maximum number of text expansions that can be defined.
-      Each expansion consists of a short code and the expanded text.
-      Increasing this value will consume more memory.
+      Sets the total number of unique text expansions that can be stored.
 
 config ZMK_TEXT_EXPANDER_MAX_SHORT_LEN
-    int "Maximum length of a short code"
+    int "Maximum length for short codes"
     default 16
+    range 2 32
     help
-      Defines the maximum number of characters allowed in a short code.
-      Longer short codes can be more descriptive but may take longer to type.
+      Sets the maximum number of characters for a short code trigger.
+      Must be at least 2.
 
 config ZMK_TEXT_EXPANDER_MAX_EXPANDED_LEN
-    int "Maximum length of expanded text"
+    int "Maximum length for expanded text"
     default 256
+    range 2 1024
     help
-      Sets the maximum length of the text that a short code can expand into.
-      This should be large enough to accommodate your longest desired expansion.
+      Sets the maximum number of characters for the expanded text output.
+      Must be at least 2.
 
 config ZMK_TEXT_EXPANDER_TYPING_DELAY
-    int "Typing delay (ms)"
+    int "Typing delay between characters (ms)"
     default 10
     help
-      The delay in milliseconds between each character being typed when an
-      expansion is triggered. A smaller value results in faster typing.
+      Sets the delay in milliseconds between each typed character during expansion.
 
 config ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE
-    bool "Aggressive reset mode"
+    bool "Aggressive Reset Mode"
     default n
     help
-      When enabled, the current short code buffer is reset immediately if the
-      typed sequence of characters does not match the beginning of any
-      defined short code. This can help prevent accidental expansions but may
-      feel less forgiving.
+      If enabled, the current short code will be reset immediately if it does
+      not match a valid prefix of any stored expansion.
+
+config ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR
+    bool "Restart short code with trigger character after a reset"
+    depends on ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE
+    default n
+    help
+      If the short code is reset (e.g., in aggressive mode), the character
+      that caused the reset will be used to start a new short code.
 
 config ZMK_TEXT_EXPANDER_RESET_ON_ENTER
     bool "Reset on Enter"
     default n
     help
-      If enabled, pressing the Enter key will clear the current short code
-      buffer. This is useful if you use Enter to separate commands or text
-      and want to avoid unintended expansions.
+      If enabled, pressing Enter will reset the current short code buffer.
 
 config ZMK_TEXT_EXPANDER_RESET_ON_TAB
     bool "Reset on Tab"
     default n
     help
-      If enabled, pressing the Tab key will clear the current short code
-      buffer. This can be useful in environments where Tab is used for
-      navigation or completion.
+      If enabled, pressing Tab will reset the current short code buffer.
 
-config ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR
-    bool "Restart after reset with trigger character"
+config ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION
+    bool "Disable the default 'exp' -> 'expanded' expansion"
     default n
     help
-      When aggressive reset mode is enabled, this setting determines the
-      behavior after a reset. If enabled, the character that triggered the
-      reset will be used to start a new short code. Otherwise, the buffer
-      will be completely cleared.
+      If enabled, the module will not load the default sample expansion
+      if no other expansions are defined by the user.
 
 config ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY
-    bool "Ultra low memory mode"
+    bool "Enable Ultra Low Memory Mode"
     default n
     help
-      Enable this mode to reduce the memory footprint of the text expander
-      at the cost of some features. For example, the character-to-keycode
-      lookup table may be replaced with a simpler, less comprehensive
-      function.
+      Reduces memory footprint by removing the comprehensive character-to-keycode
+      lookup table. This limits expansions to basic alphanumeric characters and a
+      wide range of common symbols.
 
-endif # ZMK_TEXT_EXPANDER
+endif
 
 endmenu
