@@ -128,8 +128,7 @@ int start_expansion(struct expansion_work *work_item, const char *short_code, co
     LOG_INF("Starting expansion: short_code='%s', expanded_text='%s', backspaces=%d", short_code, expanded_text, short_len);
     cancel_current_expansion(work_item);
 
-    strncpy(work_item->expanded_text, expanded_text, sizeof(work_item->expanded_text) - 1);
-    work_item->expanded_text[sizeof(work_item->expanded_text) - 1] = '\0';
+    work_item->expanded_text = expanded_text;
 
     work_item->backspace_count = short_len;
     work_item->text_index = 0;

@@ -50,7 +50,7 @@ enum expansion_state {
 
 struct expansion_work {
   struct k_work_delayable work;
-  char expanded_text[MAX_EXPANDED_LEN];
+  const char *expanded_text;
   uint8_t backspace_count;
   size_t text_index;
   int64_t start_time_ms;
@@ -80,7 +80,7 @@ struct text_expander_data {
 
   /** @brief Work item for handling the asynchronous expansion (typing) process. */
   struct expansion_work expansion_work_item;
-  
+
   /** @brief Message queue for key press events to be processed asynchronously. */
   struct k_msgq key_event_msgq;
   /** @brief Backing buffer for the key event message queue. */
