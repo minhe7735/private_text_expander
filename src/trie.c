@@ -63,7 +63,12 @@ struct trie_node *trie_search(struct trie_node *root, const char *key) {
         LOG_DBG("Search found terminal node for key '%s'", key);
         return current;
     }
-    LOG_DBG("Search found a node for key '%s', but it is not terminal", key);
+    
+    if (current) {
+        LOG_DBG("Search found a non-terminal node for key '%s'", key);
+    } else {
+        LOG_DBG("Search did not find any node for key '%s'", key);
+    }
     return NULL;
 }
 
@@ -79,6 +84,7 @@ struct trie_node *trie_get_node_for_key(struct trie_node *root, const char *key)
             LOG_WRN("Invalid character in key: '%c'", key[i]);
             return NULL;
         }
+        LOG_DBG("Traversing with char '%c' at index %d", key[i], index);
         current = current->children[index];
         if (current == NULL) {
             LOG_DBG("No node found for char '%c' in key '%s'", key[i], key);
@@ -104,9 +110,10 @@ int trie_insert(struct trie_node *root, const char *key, const char *value,
             return -EINVAL;
         }
         if (current->children[index] == NULL) {
-            LOG_DBG("No child for char '%c', creating new node.", key[i]);
+            LOG_DBG("No child for char '%c' at index %d, creating new node.", key[i], index);
             current->children[index] = trie_allocate_node(data);
             if (current->children[index] == NULL) {
+                LOG_ERR("Failed to allocate node for char '%c'", key[i]);
                 return -ENOMEM;
             }
         }
@@ -116,9 +123,12 @@ int trie_insert(struct trie_node *root, const char *key, const char *value,
         LOG_INF("Updating existing entry for key '%s'", key);
     }
     current->expanded_text = trie_allocate_string(data, value);
-    if (!current->expanded_text) return -ENOMEM;
+    if (!current->expanded_text) {
+        LOG_ERR("Failed to allocate string for value '%s'", value);
+        return -ENOMEM;
+    }
     current->is_terminal = true;
-    LOG_DBG("Successfully inserted key '%s'", key);
+    LOG_DBG("Successfully inserted/updated key '%s'", key);
     return 0;
 }
 
