@@ -22,7 +22,7 @@ uint32_t char_to_keycode(char c, bool *needs_shift) {
     LOG_DBG("Converting char '%c' to keycode", c);
     uint32_t keycode = 0;
 
-#if !ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY
+#if !defined(CONFIG_ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY)
     static const keycode_map_entry_t keycode_lut[KEYCODE_LUT_SIZE] __attribute__((section(".rodata"))) = {
         [' ' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_SPACEBAR, 0},
         ['!' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION, 1},

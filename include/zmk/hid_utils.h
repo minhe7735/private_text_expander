@@ -13,7 +13,7 @@ static inline int send_key_action(uint32_t keycode, bool pressed) {
     return pressed ? zmk_hid_keyboard_press(keycode) : zmk_hid_keyboard_release(keycode);
 }
 
-#if !ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY
+#if !defined(CONFIG_ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY)
 #define KEYCODE_LUT_OFFSET 32
 #define KEYCODE_LUT_SIZE (127 - KEYCODE_LUT_OFFSET)
 

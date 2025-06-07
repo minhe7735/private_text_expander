@@ -39,6 +39,14 @@ config ZMK_TEXT_EXPANDER_TYPING_DELAY
     help
       Sets the delay in milliseconds between each typed character during expansion.
 
+config ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE
+    int "Size of the key event queue"
+    default 16
+    range 4 64
+    help
+      Sets the number of key press/release events that can be buffered.
+      Increase this if you see 'Failed to queue key event' warnings.
+
 config ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE
     bool "Aggressive Reset Mode"
     default n
