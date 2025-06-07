@@ -3,7 +3,6 @@
 #include <zephyr/logging/log.h>
 #include <zmk/hid.h>
 #include <zmk/endpoints.h>
-
 #include <zmk/expansion_engine.h>
 #include <zmk/hid_utils.h>
 #include <zmk/text_expander.h>
@@ -13,7 +12,7 @@ LOG_MODULE_REGISTER(expansion_engine, LOG_LEVEL_DBG);
 static void clear_shift_if_active(struct expansion_work *exp_work) {
     if (exp_work->shift_mod_active) {
         LOG_DBG("Shift is active, clearing it.");
-        zmk_hid_unregister_mods(MOD_LSFT | MOD_RSFT);
+        zmk_hid_unregister_mods(MOD_LSFT);
         zmk_endpoints_send_report(HID_USAGE_KEY);
         exp_work->shift_mod_active = false;
         LOG_DBG("Unregistered shift modifier");
@@ -23,8 +22,15 @@ static void clear_shift_if_active(struct expansion_work *exp_work) {
 void cancel_current_expansion(struct expansion_work *work_item) {
     if (k_work_cancel_delayable(&work_item->work) >= 0) {
         LOG_INF("Cancelling current expansion work.");
+
+        if (work_item->current_keycode > 0) {
+            LOG_DBG("Releasing potentially stuck keycode: %d", work_item->current_keycode);
+            send_and_flush_key_action(work_item->current_keycode, false);
+        }
+
         clear_shift_if_active(work_item);
         work_item->state = EXPANSION_STATE_IDLE;
+        work_item->current_keycode = 0;
     }
 }
 
@@ -49,26 +55,27 @@ void expansion_work_handler(struct k_work *work) {
         break;
 
     case EXPANSION_STATE_BACKSPACE_PRESS:
-        LOG_DBG("State: BACKSPACE_PRESS");
+        LOG_DBG("State: BACKSPACE_PRESS, sending backspace press");
         send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE, true);
         exp_work->state = EXPANSION_STATE_BACKSPACE_RELEASE;
         k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
         break;
 
     case EXPANSION_STATE_BACKSPACE_RELEASE:
-        LOG_DBG("State: BACKSPACE_RELEASE");
+        LOG_DBG("State: BACKSPACE_RELEASE, sending backspace release");
         send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE, false);
         exp_work->backspace_count--;
+        LOG_DBG("Backspaces remaining: %d", exp_work->backspace_count);
         exp_work->state = EXPANSION_STATE_START_BACKSPACE;
         k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
         break;
 
     case EXPANSION_STATE_START_TYPING:
-        LOG_DBG("State: START_TYPING");
+        LOG_DBG("State: START_TYPING, beginning to type expanded text.");
     case EXPANSION_STATE_TYPE_CHAR_START:
         if (exp_work->expanded_text[exp_work->text_index] != '\0') {
             char c = exp_work->expanded_text[exp_work->text_index];
-            LOG_DBG("State: TYPE_CHAR_START for char '%c'", c);
+            LOG_DBG("State: TYPE_CHAR_START for char '%c' at index %d", c, exp_work->text_index);
             exp_work->current_keycode = char_to_keycode(c, &exp_work->current_char_needs_shift);
 
             if (exp_work->current_char_needs_shift && !exp_work->shift_mod_active) {
@@ -91,7 +98,7 @@ void expansion_work_handler(struct k_work *work) {
         break;
     
     case EXPANSION_STATE_TYPE_CHAR_KEY_PRESS:
-        LOG_DBG("State: TYPE_CHAR_KEY_PRESS for '%c'", exp_work->expanded_text[exp_work->text_index]);
+        LOG_DBG("State: TYPE_CHAR_KEY_PRESS for '%c' (keycode: %d)", exp_work->expanded_text[exp_work->text_index], exp_work->current_keycode);
         if (exp_work->current_keycode > 0) {
             ret = send_and_flush_key_action(exp_work->current_keycode, true);
             if (ret < 0) {
@@ -106,9 +113,10 @@ void expansion_work_handler(struct k_work *work) {
         break;
 
     case EXPANSION_STATE_TYPE_CHAR_KEY_RELEASE:
-        LOG_DBG("State: TYPE_CHAR_KEY_RELEASE for '%c'", exp_work->expanded_text[exp_work->text_index]);
+        LOG_DBG("State: TYPE_CHAR_KEY_RELEASE for '%c' (keycode: %d)", exp_work->expanded_text[exp_work->text_index], exp_work->current_keycode);
         if (exp_work->current_keycode > 0) {
             send_and_flush_key_action(exp_work->current_keycode, false);
+            exp_work->current_keycode = 0;
         }
         exp_work->text_index++;
         exp_work->state = EXPANSION_STATE_TYPE_CHAR_START;
@@ -119,6 +127,7 @@ void expansion_work_handler(struct k_work *work) {
         LOG_INF("Expansion finished successfully.");
         clear_shift_if_active(exp_work);
     default:
+        LOG_DBG("Entering default state, setting to IDLE");
         exp_work->state = EXPANSION_STATE_IDLE;
         break;
     }
@@ -134,6 +143,7 @@ int start_expansion(struct expansion_work *work_item, const char *short_code, co
     work_item->text_index = 0;
     work_item->start_time_ms = k_uptime_get();
     work_item->shift_mod_active = false;
+    work_item->current_keycode = 0;
 
     if (work_item->backspace_count > 0) {
         work_item->state = EXPANSION_STATE_START_BACKSPACE;

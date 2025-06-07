@@ -5,13 +5,11 @@
 #include <zephyr/sys/util.h>
 #include <drivers/behavior.h>
 #include <errno.h>
-#include <string.h>
 #include <zephyr/logging/log.h>
 
 #include <zmk/behavior.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
-#include <zmk/keymap.h>
 #include <zmk/hid.h>
 
 #include <zmk/text_expander.h>
@@ -63,6 +61,7 @@ static bool is_ignorable_for_reset(uint16_t keycode) {
     if (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_TAB) && keycode == HID_USAGE_KEY_KEYBOARD_TAB) {
         return true;
     }
+    LOG_DBG("Keycode %d is not ignorable for reset", keycode);
     return false;
 }
 
@@ -163,6 +162,7 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
     
+    LOG_DBG("Keycode event: keycode=%d, pressed=%s", ev->keycode, ev->state ? "true" : "false");
     struct text_expander_key_event key_event = { .keycode = ev->keycode, .pressed = ev->state };
     int ret = k_msgq_put(&expander_data.key_event_msgq, &key_event, K_NO_WAIT);
     if (ret != 0) {
@@ -178,12 +178,15 @@ void text_expander_processor_work_handler(struct k_work *work) {
     struct text_expander_key_event ev;
 
     while (k_msgq_get(&expander_data.key_event_msgq, &ev, K_NO_WAIT) == 0) {
-        if (!ev.pressed) continue;
+        if (!ev.pressed) {
+            LOG_DBG("Ignoring key release event for keycode: %d", ev.keycode);
+            continue;
+        }
 
         k_mutex_lock(&expander_data.mutex, K_FOREVER);
 
         uint16_t keycode = ev.keycode;
-        LOG_DBG("Processing keycode: %d", keycode);
+        LOG_DBG("Processing key press: keycode=%d", keycode);
 
         char char_that_caused_change = 0;
         bool reset_triggered = false;
@@ -249,6 +252,8 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
             LOG_INF("No expansion found for '%s', resetting", expander_data.current_short);
             reset_current_short();
         }
+    } else {
+        LOG_DBG("Trigger pressed but no short code entered.");
     }
     k_mutex_unlock(&expander_data.mutex);
     return ZMK_BEHAVIOR_TRANSPARENT;
@@ -337,7 +342,7 @@ static int text_expander_init(const struct device *dev) {
         text_expander_load_expansion("exp", "expanded");
     }
 
-    LOG_INF("Text expander initialization complete.");
+    LOG_INF("Text expander initialization complete for device %s.", dev->name);
     return 0;
 }
 

@@ -18,10 +18,19 @@ The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It le
       * For example, if you have a shortcut "brb" -\> "be right back", you'd type `b`, then `r`, then `b`.
 2.  **Trigger the Expansion:** Press the special key you've assigned for text expansion (we'll cover setting this up below).
 3.  **Magic\!**
-      * If the text expander recognizes your short code:
-          * It will automatically "backspace" to delete the short code you typed.
-          * Then, it will type out the full text for you\!
-      * If it doesn't recognize the short code, usually nothing happens, or your typed short code might be cleared.
+      * If the text expander recognizes your short code, its behavior will change depending on how you've defined the expansion. It operates in two modes: **Text Replacement** or **Text Completion**.
+
+      * **Text Replacement Mode:** This is the default behavior. If your `expanded_text` does **not** start with your `short_code`, the module will:
+          1.  Automatically "backspace" to delete the short code you typed.
+          2.  Type out the full `expanded_text`.
+          * *Example:* An expansion like `sig` -> `- Kindly, Me` will delete `sig` from the screen and type `- Kindly, Me` in its place.
+
+      * **Text Completion Mode:** This behavior is triggered automatically if your `expanded_text` **does** start with your `short_code`. In this case, the module will:
+          1.  **Not backspace** or delete the short code you already typed.
+          2.  Type out only the *rest* of the `expanded_text` immediately after what you typed.
+          * *Example:* An expansion like `wip` -> `wip project` will keep the `wip` on your screen and simply type ` project` right after it.
+
+      * If the module doesn't recognize the short code, usually nothing happens, or your typed short code might be cleared depending on your settings.
 4.  **Clearing Your Typed Short Code:**
       * Pressing `Spacebar` usually clears what you've typed so far if it wasn't a trigger for an expansion.
       * Typing other keys that aren't letters or numbers (like symbols or Enter, depending on your settings) will also typically clear your current short code.

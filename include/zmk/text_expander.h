@@ -29,35 +29,15 @@
 #define KEY_EVENT_QUEUE_SIZE CONFIG_ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE
 
 #include <zmk/trie.h>
+#include <zmk/expansion_engine.h>
 #include <zmk/events/keycode_state_changed.h>
 
+/**
+ * @brief Represents a key event to be processed by the text expander.
+ */
 struct text_expander_key_event {
     uint16_t keycode;
     bool pressed;
-};
-
-enum expansion_state {
-  EXPANSION_STATE_IDLE,
-  EXPANSION_STATE_START_BACKSPACE,
-  EXPANSION_STATE_BACKSPACE_PRESS,
-  EXPANSION_STATE_BACKSPACE_RELEASE,
-  EXPANSION_STATE_START_TYPING,
-  EXPANSION_STATE_TYPE_CHAR_START,
-  EXPANSION_STATE_TYPE_CHAR_KEY_PRESS,
-  EXPANSION_STATE_TYPE_CHAR_KEY_RELEASE,
-  EXPANSION_STATE_FINISH,
-};
-
-struct expansion_work {
-  struct k_work_delayable work;
-  const char *expanded_text;
-  uint8_t backspace_count;
-  size_t text_index;
-  int64_t start_time_ms;
-  enum expansion_state state;
-  uint32_t current_keycode;
-  bool current_char_needs_shift;
-  bool shift_mod_active;
 };
 
 /**
@@ -106,4 +86,4 @@ struct text_expander_data {
 
 extern struct text_expander_data expander_data;
 
-#endif
+#endif /* ZMK_TEXT_EXPANDER_H */

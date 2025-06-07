@@ -1,6 +1,5 @@
-#include <zephyr/kernel.h>
 #include <zmk/hid_utils.h>
-#include <zmk/hid.h>
+#include <zmk/endpoints.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(hid_utils, LOG_LEVEL_DBG);
