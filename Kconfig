@@ -10,29 +10,6 @@ config ZMK_TEXT_EXPANDER
 
 if ZMK_TEXT_EXPANDER
 
-config ZMK_TEXT_EXPANDER_MAX_EXPANSIONS
-    int "Maximum number of expansions"
-    default 10
-    range 1 256
-    help
-      Sets the total number of unique text expansions that can be stored.
-
-config ZMK_TEXT_EXPANDER_MAX_SHORT_LEN
-    int "Maximum length for short codes"
-    default 16
-    range 2 32
-    help
-      Sets the maximum number of characters for a short code trigger.
-      Must be at least 2.
-
-config ZMK_TEXT_EXPANDER_MAX_EXPANDED_LEN
-    int "Maximum length for expanded text"
-    default 256
-    range 2 1024
-    help
-      Sets the maximum number of characters for the expanded text output.
-      Must be at least 2.
-
 config ZMK_TEXT_EXPANDER_TYPING_DELAY
     int "Typing delay between characters (ms)"
     default 10

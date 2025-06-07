@@ -19,17 +19,14 @@ The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It le
 2.  **Trigger the Expansion:** Press the special key you've assigned for text expansion (we'll cover setting this up below).
 3.  **Magic\!**
       * If the text expander recognizes your short code, its behavior will change depending on how you've defined the expansion. It operates in two modes: **Text Replacement** or **Text Completion**.
-
       * **Text Replacement Mode:** This is the default behavior. If your `expanded_text` does **not** start with your `short_code`, the module will:
-          1.  Automatically "backspace" to delete the short code you typed.
-          2.  Type out the full `expanded_text`.
-          * *Example:* An expansion like `sig` -> `- Kindly, Me` will delete `sig` from the screen and type `- Kindly, Me` in its place.
-
+        1.  Automatically "backspace" to delete the short code you typed.
+        2.  Type out the full `expanded_text`.
+          * *Example:* An expansion like `sig` -\> `- Kindly, Me` will delete `sig` from the screen and type `- Kindly, Me` in its place.
       * **Text Completion Mode:** This behavior is triggered automatically if your `expanded_text` **does** start with your `short_code`. In this case, the module will:
-          1.  **Not backspace** or delete the short code you already typed.
-          2.  Type out only the *rest* of the `expanded_text` immediately after what you typed.
-          * *Example:* An expansion like `wip` -> `wip project` will keep the `wip` on your screen and simply type ` project` right after it.
-
+        1.  **Not backspace** or delete the short code you already typed.
+        2.  Type out only the *rest* of the `expanded_text` immediately after what you typed.
+          * *Example:* An expansion like `wip` -\> `wip project` will keep the `wip` on your screen and simply type `  project ` right after it.
       * If the module doesn't recognize the short code, usually nothing happens, or your typed short code might be cleared depending on your settings.
 4.  **Clearing Your Typed Short Code:**
       * Pressing `Spacebar` usually clears what you've typed so far if it wasn't a trigger for an expansion.
@@ -85,17 +82,36 @@ The main way to add your text expansions is through your ZMK keymap file (often 
 
 ### Special Characters in Expansions (like Enter or Tab)
 
-When defining `expanded_text` in your Device Tree files, you can use `\n` for a newline (Enter) and `\t` for a Tab. For literal backslashes or quotes, use `\\` and `\"` respectively.
+Want your expansion to hit "Enter" or "Tab"? You can\!
 
-Note that using these escape sequences in Device Tree Source (`.dts` or `.keymap` files) may require a patched version of Zephyr to build correctly, as older versions had issues parsing these characters.
+  * Use `\n` in your `expanded_text` to make it press Enter.
+  * Use `\t` for Tab.
+  * Use `\"` for a literal double quote (`"`) and `\\` for a literal backslash (`\`).
+
+**Important Note on Special Characters in `expanded_text` (DTS Configuration)**
+
+When defining `expanded_text` in your Device Tree files (e.g., `.keymap`), you might encounter build errors during the CMake configuration stage if you are using certain escape sequences like `\n` (for newline/Enter), `\t` (for Tab), `\"` (for a literal double quote), or `\\` (for a literal backslash). These errors often originate from Zephyr's internal `dts.cmake` script and its handling of string properties containing such characters.
+
+To reliably use these special characters in `expanded_text` defined via Device Tree, your Zephyr environment needs to include fixes for these underlying build system issues. You have the following options:
+
+1.  **Use a Patched Zephyr Tree:** Point your ZMK firmware's Zephyr dependency to the `text-expander` branch of this Zephyr fork: `https://github.com/minhe7735/zephyr/tree/text-expander`. This branch is understood to contain the necessary patches. You would typically adjust your `west.yml` manifest file in your ZMK configuration to point to this Zephyr source.
+
+2.  **Use a ZMK Branch with Patched Zephyr:** Point your ZMK firmware to the `text-expander` branch of this ZMK fork: `https://github.com/minhe7735/zmk/tree/text-expander`. This ZMK branch likely manages its Zephyr dependency to include the required fixes. Again, this would involve updating your `west.yml` manifest.
+
+The underlying Zephyr fixes that address these `dts.cmake` parsing issues correspond to commits `c82799b` and `6edefd8` in the main `zephyrproject-rtos/zephyr` repository. Credit for submitting these commits to the Zephyr project goes to Joel Spadin (https://github.com/joelspadin).
+
+Once your Zephyr environment includes these fixes (by using one of the options above or by ensuring your Zephyr version incorporates these commits):
+
+  * To achieve a **newline action (Enter key)** in your expansion, use `\n` in your DTS `expanded_text`.
+  * To achieve a **tab action (Tab key)**, use `\t`.
+  * To type a **literal double quote (`"`)**, use `\"`.
+  * To type a **literal backslash (`\`)**, use `\\`.
 
 ## Fine-Tuning (Optional Kconfig Settings)
 
 You can fine-tune the text expander's behavior by adding the following options to your `config/<your_keyboard_name>.conf` file. You must first enable the module with `CONFIG_ZMK_TEXT_EXPANDER=y`.
 
-  * `CONFIG_ZMK_TEXT_EXPANDER_MAX_EXPANSIONS`: Sets the total number of unique text expansions that can be stored (Default: 10).
   * `CONFIG_ZMK_TEXT_EXPANDER_MAX_SHORT_LEN`: Sets the maximum number of characters for a short code trigger (Default: 16).
-  * `CONFIG_ZMK_TEXT_EXPANDER_MAX_EXPANDED_LEN`: Sets the maximum number of characters for the expanded text output (Default: 256).
   * `CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY`: The delay in milliseconds between each typed character during expansion (Default: 10).
   * `CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE`: If on, the current short code is reset immediately if it doesn't match a valid prefix of any stored expansion.
   * `CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR`: If the short code is reset (e.g., in aggressive mode), the character that caused the reset will start a new short code.

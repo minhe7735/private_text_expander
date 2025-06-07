@@ -30,7 +30,7 @@ struct expansion_work {
   uint8_t backspace_count;
   size_t text_index;
   int64_t start_time_ms;
-  enum expansion_state state;
+  volatile enum expansion_state state;
   uint32_t current_keycode;
   bool current_char_needs_shift;
   bool shift_mod_active;
