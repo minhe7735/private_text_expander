@@ -2,7 +2,7 @@
 ![zmkiscool](https://github.com/user-attachments/assets/bacdf566-406d-4f88-afa0-e91c9ae1f414)
 ## What is This?
 
-The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It lets you type a short abbreviation (like "eml"), and have it automatically turn into a longer phrase (like "my.long.email.address@example.com"). It's perfect for things you type often\!
+The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It lets you type a short abbreviation (like "eml"), and have it automatically turn into a longer phrase (like "my.long.email.address@example.com"). It's perfect for things you type often!
 
 ## Cool Things It Can Do
 
@@ -15,24 +15,22 @@ The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It le
 ## How to Use It (The Basics)
 
 1.  **Type Your Short Code:** As you type letters (a-z) and numbers (0-9), the text expander remembers them.
-      * For example, if you have a shortcut "brb" -\> "be right back", you'd type `b`, then `r`, then `b`.
-2.  **Trigger the Expansion:** Press the special key you've assigned for text expansion (we'll cover setting this up below).
-3.  **Magic\!**
+      * For example, if you have a shortcut "brb" -> "be right back", you'd type `b`, then `r`, then `b`.
+2.  **Trigger the Expansion:** Press a key you've configured to trigger expansions. This can be a dedicated manual trigger key or an automatic trigger key like `Space` or `Enter`.
+3.  **Magic!**
       * If the text expander recognizes your short code, its behavior will change depending on how you've defined the expansion. It operates in two modes: **Text Replacement** or **Text Completion**.
-      * **Text Replacement Mode:** This is the default behavior. If your `expanded_text` does **not** start with your `short_code`, the module will:
-        1.  Automatically "backspace" to delete the short code you typed.
-        2.  Type out the full `expanded_text`.
-        <!-- end list -->
-          * *Example:* An expansion like `sig` -\> `- Kindly, Me` will delete `sig` from the screen and type `- Kindly, Me` in its place.
-      * **Text Completion Mode:** This behavior is triggered automatically if your `expanded_text` **does** start with your `short_code`. In this case, the module will:
-        1.  **Not backspace** or delete the short code you already typed.
-        2.  Type out only the *rest* of the `expanded_text` immediately after what you typed.
-        <!-- end list -->
-          * *Example:* An expansion like `wip` -\> `wip project` will keep the `wip` on your screen and simply type `  project ` right after it.
-      * If the module doesn't recognize the short code, usually nothing happens, or your typed short code might be cleared depending on your settings.
+      * **Text Replacement Mode:** This is the default behavior. If your `expanded-text` does **not** start with your `short-code`, the module will:
+        1.  Automatically "backspace" to delete the short code you typed (and the trigger character).
+        2.  Type out the full `expanded-text`.
+        3.  Replay the trigger key you pressed (e.g., it will type a `space` if you triggered with the spacebar).
+        * *Example:* An expansion like `sig` -> `- Kindly, Me` triggered with the `spacebar` will delete `sig ` and type `- Kindly, Me `.
+      * **Text Completion Mode:** This behavior is triggered automatically if your `expanded-text` **does** start with your `short-code`. In this case, the module will:
+        1.  Type out only the *rest* of the `expanded-text` immediately after what you typed.
+        2.  Replay the trigger key you pressed.
+        * *Example:* An expansion like `wip` -> `wip project` triggered with the `spacebar` will keep `wip` on your screen and type ` project ` right after it.
+      * If the module doesn't recognize the short code, the trigger key will behave as it normally does.
 4.  **Clearing Your Typed Short Code:**
-      * Pressing `Spacebar` usually clears what you've typed so far if it wasn't a trigger for an expansion.
-      * Typing other keys that aren't letters or numbers (like symbols or Enter, depending on your settings) will also typically clear your current short code.
+      * Pressing a non-alphanumeric key that is *not* an auto-expand trigger will clear the current short code buffer.
       * `Backspace` will delete the last character you typed into your short code.
 
 ## Setting Up Your Expansions
@@ -42,59 +40,69 @@ The main way to add your text expansions is through your ZMK keymap file (often 
 ### Example: Adding Expansions in Your Keymap
 
 ```dts
+// You must include the ZMK keys header at the top of your .keymap file
+#include <dt-bindings/zmk/keys.h>
+
 / {
     behaviors {
-        // Give your text expander setup a name, like "txt_exp"
         txt_exp: text_expander {
-            compatible = "zmk,behavior-text-expander"; // This line is important!
+            compatible = "zmk,behavior-text-expander";
 
-            // Now, define your shortcuts:
-            my_email_shortcut: expansion_email { // Unique name for this specific shortcut
-                short_code = "eml";                 // What you'll type
-                expanded_text = "my.name@example.com"; // What it becomes
+            // --- OPTIONAL TOP-LEVEL SETTINGS ---
+
+            // CORRECT SYNTAX: Use keycode macros like SPACE, ENTER, etc., inside the < >.
+            auto-expand-keycodes = <SPACE ENTER TAB>;
+
+            // CORRECT SYNTAX: Use the BSPC macro for backspace.
+            undo-keycode = <BSPC>;
+
+            reset-keycodes = <ESC>;
+            
+            // By default, the trigger key is preserved. To disable this, uncomment the following line.
+            // disable-preserve-trigger;
+
+
+            // --- EXPANSION DEFINITIONS ---
+            expansion_email: my_email {
+                short-code = "eml";
+                expanded-text = "my.personal.email@example.com";
             };
 
-            signature_shortcut: expansion_sig {
-                short_code = "sig";
-                expanded_text = "- Kindly, Me";
+            expansion_signature: my_signature {
+                short-code = "sig";
+                expanded-text = "- Jane Doe\nSent from my custom keyboard";
             };
         };
     };
 
     keymap {
-        default_layer { // Or any layer you prefer
+        default_layer {
             bindings = <
-                // ... your other key bindings ...
-
-                // To use the text expander, assign it to a key.
-                // For example, replace a key like &kp C with &txt_exp
                 &kp A  &kp B  &txt_exp  &kp D
-
-                // ... more key bindings ...
             >;
         };
     };
 };
-```
+````
 
 **Important:**
 
-  * `short_code`: Keep these to lowercase letters (a-z) and numbers (0-9).
+  * `short-code`: Keep these to lowercase letters (a-z) and numbers (0-9). Using other characters may lead to unexpected behavior.
   * The `&txt_exp` in your `keymap` should match the name you gave your text expander setup (e.g., `txt_exp` in `&txt_exp` corresponds to `txt_exp: text_expander`).
 
 ### Special Characters in Expansions (like Enter or Tab)
 
 Want your expansion to hit "Enter" or "Tab"? You can\!
 
-  * Use `\n` in your `expanded_text` to make it press Enter.
+  * Use `\n` in your `expanded-text` to make it press Enter.
   * Use `\t` for Tab.
   * Use `\"` for a literal double quote (`"`) and `\\` for a literal backslash (`\`).
 
-**Important Note on Special Characters in `expanded_text` (DTS Configuration)**
+**Important Note on Special Characters in `expanded-text` (DTS Configuration)**
 
-When defining `expanded_text` in your Device Tree files (e.g., `.keymap`), you might encounter build errors during the CMake configuration stage if you are using certain escape sequences like `\n` (for newline/Enter), `\t` (for Tab), `\"` (for a literal double quote), or `\\` (for a literal backslash). These errors often originate from Zephyr's internal `dts.cmake` script and its handling of string properties containing such characters.
+When defining `expanded-text` in your Device Tree files (e.g., `.keymap`), you might encounter build errors during the CMake configuration stage if you are using certain escape sequences like `\n` (for newline/Enter), `\t` (for Tab), `\"` (for a literal double quote), or `\\` (for a literal backslash). These errors often originate from Zephyr's internal `dts.cmake` script and its handling of string properties containing such characters.
 
-To reliably use these special characters in `expanded_text` defined via Device Tree, your Zephyr environment needs to include fixes for these underlying build system issues. You have the following options:
+To reliably use these special characters in `expanded-text` defined via Device Tree, your Zephyr environment needs to include fixes for these underlying build system issues. You have the following options:
 
 1.  **Use a Patched Zephyr Tree:** Point your ZMK firmware's Zephyr dependency to the `text-expander` branch of this Zephyr fork: `https://github.com/minhe7735/zephyr/tree/text-expander`. This branch is understood to contain the necessary patches. You would typically adjust your `west.yml` manifest file in your ZMK configuration to point to this Zephyr source.
 
@@ -104,7 +112,7 @@ The underlying Zephyr fixes that address these `dts.cmake` parsing issues corres
 
 Once your Zephyr environment includes these fixes (by using one of the options above or by ensuring your Zephyr version incorporates these commits):
 
-  * To achieve a **newline action (Enter key)** in your expansion, use `\n` in your DTS `expanded_text`.
+  * To achieve a **newline action (Enter key)** in your expansion, use `\n` in your DTS `expanded-text`.
   * To achieve a **tab action (Tab key)**, use `\t`.
   * To type a **literal double quote (`"`)**, use `\"`.
   * To type a **literal backslash (`\`)**, use `\\`.
@@ -116,7 +124,6 @@ You can fine-tune the text expander's behavior by adding the following options t
   * `CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY`: The delay in milliseconds between each typed character during expansion (Default: 10).
   * `CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE`: If on, the current short code is reset immediately if it doesn't match a valid prefix of any stored expansion.
   * `CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR`: If the short code is reset (e.g., in aggressive mode), the character that caused the reset will start a new short code.
-  * `CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_ENTER`/`_RESET_ON_TAB`: Whether pressing Enter or Tab clears the current short code.
   * `CONFIG_ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION`: If set to `y`, the module will not load the default sample expansion (`exp` -\> `expanded`) if no other expansions are defined.
   * `CONFIG_ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY`: A special mode that reduces memory usage by removing the large character-to-keycode lookup table. In this updated version, this mode still supports basic letters, numbers, and a wide range of common special characters (like `!@#$%-=_+[]{}`, etc.), making it a practical choice for memory-constrained devices.
 

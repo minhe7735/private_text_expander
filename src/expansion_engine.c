@@ -125,22 +125,22 @@ void expansion_work_handler(struct k_work *work) {
     case EXPANSION_STATE_FINISH:
         LOG_INF("Expansion finished successfully.");
         clear_shift_if_active(exp_work);
-        if (exp_work->add_space_after) {
-            exp_work->state = EXPANSION_STATE_SEND_SPACE_PRESS;
+        if (exp_work->trigger_keycode_to_replay > 0) {
+            exp_work->state = EXPANSION_STATE_REPLAY_KEY_PRESS;
             k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
         } else {
             exp_work->state = EXPANSION_STATE_IDLE;
         }
         break;
 
-    case EXPANSION_STATE_SEND_SPACE_PRESS:
-        send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_SPACEBAR, true);
-        exp_work->state = EXPANSION_STATE_SEND_SPACE_RELEASE;
+    case EXPANSION_STATE_REPLAY_KEY_PRESS:
+        send_and_flush_key_action(exp_work->trigger_keycode_to_replay, true);
+        exp_work->state = EXPANSION_STATE_REPLAY_KEY_RELEASE;
         k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
         break;
     
-    case EXPANSION_STATE_SEND_SPACE_RELEASE:
-        send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_SPACEBAR, false);
+    case EXPANSION_STATE_REPLAY_KEY_RELEASE:
+        send_and_flush_key_action(exp_work->trigger_keycode_to_replay, false);
         exp_work->state = EXPANSION_STATE_IDLE;
         break;
 
@@ -151,14 +151,14 @@ void expansion_work_handler(struct k_work *work) {
     }
 }
 
-int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t short_len, bool add_space_after) {
-    LOG_INF("Starting expansion: short_code='%s', expanded_text='%s', backspaces=%d, add_space=%d", short_code, expanded_text, short_len, add_space_after);
+int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t len_to_delete, uint16_t trigger_keycode) {
+    LOG_INF("Starting expansion: short_code='%s', expanded_text='%s', backspaces=%d, replay_keycode=%d", short_code, expanded_text, len_to_delete, trigger_keycode);
     cancel_current_expansion(work_item);
 
     work_item->expanded_text = expanded_text;
-    work_item->add_space_after = add_space_after;
+    work_item->trigger_keycode_to_replay = trigger_keycode;
 
-    work_item->backspace_count = short_len;
+    work_item->backspace_count = len_to_delete;
     work_item->text_index = 0;
     work_item->start_time_ms = k_uptime_get();
     work_item->shift_mod_active = false;

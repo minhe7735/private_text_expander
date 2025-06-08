@@ -2,28 +2,39 @@ description: Text expander behavior for ZMK
 compatible: "zmk,behavior-text-expander"
 include: zero_param.yaml
 
+properties:
+  undo-keycode:
+    type: int
+    required: false
+    description: "The single keycode that triggers an undo of the last expansion."
+  
+  reset-keycodes:
+    type: array
+    required: false
+    description: "A list of keycodes that will reset the current short code buffer."
+
+  auto-expand-keycodes:
+    type: array
+    required: false
+    description: "A list of keycodes that will automatically trigger an expansion."
+
+  disable-preserve-trigger:
+    type: boolean
+    required: false
+    description: |
+      If present, this flag disables the default behavior of replaying a
+      trigger key (like space or enter) after an expansion. When disabled,
+      the trigger key is simply consumed.
+
 child-binding:
   description: |
     Text expansion definition. Each child node defines a short code and
     its corresponding expanded text.
     
   properties:
-    short_code:
+    short-code:
       type: string
       required: true
-      description: |
-        The short code that will trigger the expansion. Can contain any printable
-        ASCII characters.
-        
-    expanded_text:
+    expanded-text:
       type: string  
       required: true
-      description: |
-        The text that the short code will expand to.
-
-    add-space-after:
-      type: boolean
-      required: false
-      description: |
-        If present and true, a space keypress will be sent after the
-        expansion is complete.

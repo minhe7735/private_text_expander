@@ -19,8 +19,8 @@ enum expansion_state {
   EXPANSION_STATE_TYPE_CHAR_KEY_PRESS,
   EXPANSION_STATE_TYPE_CHAR_KEY_RELEASE,
   EXPANSION_STATE_FINISH,
-  EXPANSION_STATE_SEND_SPACE_PRESS,
-  EXPANSION_STATE_SEND_SPACE_RELEASE,
+  EXPANSION_STATE_REPLAY_KEY_PRESS,
+  EXPANSION_STATE_REPLAY_KEY_RELEASE,
 };
 
 /**
@@ -33,10 +33,10 @@ struct expansion_work {
   size_t text_index;
   int64_t start_time_ms;
   volatile enum expansion_state state;
-  uint32_t current_keycode;
+  uint16_t current_keycode;
   bool current_char_needs_shift;
   bool shift_mod_active;
-  bool add_space_after;
+  uint16_t trigger_keycode_to_replay;
 };
 
 /**
@@ -54,11 +54,11 @@ void expansion_work_handler(struct k_work *work);
  * @param work_item Pointer to the expansion_work struct to use.
  * @param short_code The short code that triggered the expansion.
  * @param expanded_text The full text to be typed out.
- * @param short_len The number of characters in the short code to backspace over.
- * @param add_space_after Whether to send a space after the expansion.
+ * @param len_to_delete The number of characters to backspace over.
+ * @param trigger_keycode The keycode to replay after expansion (0 if none).
  * @return 0 on success, negative error code on failure.
  */
-int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t short_len, bool add_space_after);
+int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t len_to_delete, uint16_t trigger_keycode);
 
 /**
  * @brief Immediately cancels the currently active expansion work.

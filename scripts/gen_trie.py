@@ -17,7 +17,6 @@ class TrieNode:
         self.children = {}
         self.is_terminal = False
         self.expanded_text = None
-        self.add_space_after = False
 
 def build_trie_from_expansions(expansions):
     """Builds a Python-based trie from the dictionary of expansions."""
@@ -30,7 +29,6 @@ def build_trie_from_expansions(expansions):
             node = node.children[char]
         node.is_terminal = True
         node.expanded_text = expansion_data['text']
-        node.add_space_after = expansion_data['add_space']
     return root
 
 def parse_dts_for_expansions(dts_path_str):
@@ -41,16 +39,15 @@ def parse_dts_for_expansions(dts_path_str):
 
         def process_expander_node(expander_node):
             for child in expander_node.nodes.values():
-                if "short_code" in child.props and "expanded_text" in child.props:
-                    short_code = child.props["short_code"].to_string()
+                if "short-code" in child.props and "expanded-text" in child.props:
+                    short_code = child.props["short-code"].to_string()
                     if ' ' in short_code:
                         print(f"Warning: The short code '{short_code}' contains a space, which is a reset character and cannot be used. Skipping this expansion.", file=sys.stderr)
                         continue
                     
-                    expanded_text = child.props["expanded_text"].to_string()
-                    add_space = "add-space-after" in child.props
+                    expanded_text = child.props["expanded-text"].to_string()
                     
-                    expansions[short_code] = { "text": expanded_text, "add_space": add_space }
+                    expansions[short_code] = { "text": expanded_text }
         
         for node in dt.node_iter():
             if "compatible" not in node.props:
@@ -152,7 +149,6 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
             "hash_table_index": hash_table_index,
             "expanded_text_offset": expanded_text_offset,
             "is_terminal": 1 if py_node.is_terminal else 0,
-            "add_space_after": 1 if py_node.add_space_after else 0,
         }
 
     c_parts = ["#include <zmk/trie.h>\n#include <stddef.h> // For NULL\n\n"]
@@ -163,7 +159,7 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
     c_parts.append("const struct trie_node zmk_text_expander_trie_nodes[] = {\n")
     for py_node in c_trie_nodes:
         d = py_node.c_struct_data
-        c_parts.append(f"    {{ .hash_table_index = {d['hash_table_index']}, .expanded_text_offset = {d['expanded_text_offset']}, .is_terminal = {d['is_terminal']}, .add_space_after = {d['add_space_after']} }},\n")
+        c_parts.append(f"    {{ .hash_table_index = {d['hash_table_index']}, .expanded_text_offset = {d['expanded_text_offset']}, .is_terminal = {d['is_terminal']} }},\n")
     c_parts.append("};\n\n")
 
     c_parts.append("const struct trie_hash_table zmk_text_expander_hash_tables[] = {\n")

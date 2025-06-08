@@ -39,18 +39,6 @@ config ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR
       If the short code is reset (e.g., in aggressive mode), the character
       that caused the reset will be used to start a new short code.
 
-config ZMK_TEXT_EXPANDER_RESET_ON_ENTER
-    bool "Reset on Enter"
-    default n
-    help
-      If enabled, pressing Enter will reset the current short code buffer.
-
-config ZMK_TEXT_EXPANDER_RESET_ON_TAB
-    bool "Reset on Tab"
-    default n
-    help
-      If enabled, pressing Tab will reset the current short code buffer.
-
 config ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION
     bool "Disable the default 'exp' -> 'expanded' expansion"
     default n
