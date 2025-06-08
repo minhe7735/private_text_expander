@@ -91,7 +91,6 @@ void expansion_work_handler(struct k_work *work) {
             exp_work->state = EXPANSION_STATE_TYPE_CHAR_KEY_PRESS;
             k_work_reschedule(&exp_work->work, K_MSEC(1));
         } else {
-            LOG_DBG("End of text to type, finishing.");
             exp_work->state = EXPANSION_STATE_FINISH;
             k_work_reschedule(&exp_work->work, K_NO_WAIT);
         }
@@ -126,6 +125,25 @@ void expansion_work_handler(struct k_work *work) {
     case EXPANSION_STATE_FINISH:
         LOG_INF("Expansion finished successfully.");
         clear_shift_if_active(exp_work);
+        if (exp_work->add_space_after) {
+            exp_work->state = EXPANSION_STATE_SEND_SPACE_PRESS;
+            k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
+        } else {
+            exp_work->state = EXPANSION_STATE_IDLE;
+        }
+        break;
+
+    case EXPANSION_STATE_SEND_SPACE_PRESS:
+        send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_SPACEBAR, true);
+        exp_work->state = EXPANSION_STATE_SEND_SPACE_RELEASE;
+        k_work_reschedule(&exp_work->work, K_MSEC(TYPING_DELAY / 2));
+        break;
+    
+    case EXPANSION_STATE_SEND_SPACE_RELEASE:
+        send_and_flush_key_action(HID_USAGE_KEY_KEYBOARD_SPACEBAR, false);
+        exp_work->state = EXPANSION_STATE_IDLE;
+        break;
+
     default:
         LOG_DBG("Entering default state, setting to IDLE");
         exp_work->state = EXPANSION_STATE_IDLE;
@@ -133,11 +151,12 @@ void expansion_work_handler(struct k_work *work) {
     }
 }
 
-int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t short_len) {
-    LOG_INF("Starting expansion: short_code='%s', expanded_text='%s', backspaces=%d", short_code, expanded_text, short_len);
+int start_expansion(struct expansion_work *work_item, const char *short_code, const char *expanded_text, uint8_t short_len, bool add_space_after) {
+    LOG_INF("Starting expansion: short_code='%s', expanded_text='%s', backspaces=%d, add_space=%d", short_code, expanded_text, short_len, add_space_after);
     cancel_current_expansion(work_item);
 
     work_item->expanded_text = expanded_text;
+    work_item->add_space_after = add_space_after;
 
     work_item->backspace_count = short_len;
     work_item->text_index = 0;

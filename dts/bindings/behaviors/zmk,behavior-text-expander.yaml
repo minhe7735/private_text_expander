@@ -1,4 +1,3 @@
-
 description: Text expander behavior for ZMK
 compatible: "zmk,behavior-text-expander"
 include: zero_param.yaml
@@ -22,4 +21,9 @@ child-binding:
       description: |
         The text that the short code will expand to.
 
-
+    add-space-after:
+      type: boolean
+      required: false
+      description: |
+        If present and true, a space keypress will be sent after the
+        expansion is complete.

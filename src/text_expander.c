@@ -186,7 +186,7 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
 
                 reset_current_short();
                 
-                start_expansion(&expander_data.expansion_work_item, short_copy, text_for_engine, len_to_delete);
+                start_expansion(&expander_data.expansion_work_item, short_copy, text_for_engine, len_to_delete, node->add_space_after);
                 k_mutex_unlock(&expander_data.mutex);
 
                 return ZMK_BEHAVIOR_OPAQUE;
