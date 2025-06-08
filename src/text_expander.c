@@ -20,17 +20,40 @@ LOG_MODULE_REGISTER(text_expander, LOG_LEVEL_DBG);
 
 struct text_expander_data expander_data;
 
-static bool zmk_text_expander_global_initialized = false;
 void text_expander_processor_work_handler(struct k_work *work);
 K_WORK_DEFINE(text_expander_processor_work, text_expander_processor_work_handler);
 
-static bool is_alpha(uint16_t keycode) {
-    return (keycode >= HID_USAGE_KEY_KEYBOARD_A && keycode <= HID_USAGE_KEY_KEYBOARD_Z);
-}
+static char keycode_to_short_code_char(uint16_t keycode) {
+    if (keycode >= HID_USAGE_KEY_KEYBOARD_A && keycode <= HID_USAGE_KEY_KEYBOARD_Z) {
+        return 'a' + (keycode - HID_USAGE_KEY_KEYBOARD_A);
+    }
+    if (keycode >= HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION && keycode <= HID_USAGE_KEY_KEYBOARD_9_AND_LEFT_PARENTHESIS) {
+        return '1' + (keycode - HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION);
+    }
+    if (keycode == HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS) {
+        return '0';
+    }
 
-static bool is_numeric(uint16_t keycode) {
-    return (keycode >= HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION && keycode <= HID_USAGE_KEY_KEYBOARD_9_AND_LEFT_PARENTHESIS) ||
-           (keycode == HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS);
+    switch (keycode) {
+    case HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE:
+        return '-';
+    case HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS:
+        return '=';
+    case HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK:
+        return '/';
+    case HID_USAGE_KEY_KEYBOARD_SEMICOLON_AND_COLON:
+        return ';';
+    case HID_USAGE_KEY_KEYBOARD_APOSTROPHE_AND_QUOTE:
+        return '\'';
+    case HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE:
+        return '`';
+    case HID_USAGE_KEY_KEYBOARD_COMMA_AND_LESS_THAN:
+        return ',';
+    case HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN:
+        return '.';
+    default:
+        return '\0';
+    }
 }
 
 static bool is_modifier(uint16_t keycode) {
@@ -38,30 +61,10 @@ static bool is_modifier(uint16_t keycode) {
 }
 
 static bool is_ignorable_for_reset(uint16_t keycode) {
-    if (is_modifier(keycode) || keycode == HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE) {
-        return true;
-    }
-    if (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_ENTER) && keycode == HID_USAGE_KEY_KEYBOARD_RETURN_ENTER) {
-        return true;
-    }
-    if (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_TAB) && keycode == HID_USAGE_KEY_KEYBOARD_TAB) {
-        return true;
-    }
-    LOG_DBG("Keycode %d is not ignorable for reset", keycode);
-    return false;
-}
-
-static char keycode_to_short_code_char(uint16_t keycode) {
-    if (is_alpha(keycode)) {
-        return 'a' + (keycode - HID_USAGE_KEY_KEYBOARD_A);
-    }
-    if (is_numeric(keycode)) {
-        if (keycode == HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS) {
-            return '0';
-        }
-        return '1' + (keycode - HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION);
-    }
-    return '\0';
+    return is_modifier(keycode) ||
+           keycode == HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE ||
+           (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_ENTER) && keycode == HID_USAGE_KEY_KEYBOARD_RETURN_ENTER) ||
+           (!IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_RESET_ON_TAB) && keycode == HID_USAGE_KEY_KEYBOARD_TAB);
 }
 
 static void reset_current_short(void) {
@@ -98,7 +101,6 @@ static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    LOG_DBG("Keycode event: keycode=%d, pressed=%s", ev->keycode, ev->state ? "true" : "false");
     struct text_expander_key_event key_event = { .keycode = ev->keycode, .pressed = ev->state };
     int ret = k_msgq_put(&expander_data.key_event_msgq, &key_event, K_NO_WAIT);
     if (ret != 0) {
@@ -115,16 +117,14 @@ void text_expander_processor_work_handler(struct k_work *work) {
 
     while (k_msgq_get(&expander_data.key_event_msgq, &ev, K_NO_WAIT) == 0) {
         if (!ev.pressed) {
-            LOG_DBG("Ignoring key release event for keycode: %d", ev.keycode);
             continue;
         }
 
         k_mutex_lock(&expander_data.mutex, K_FOREVER);
 
         uint16_t keycode = ev.keycode;
-        LOG_DBG("Processing key press: keycode=%d", keycode);
-
         char next_char = keycode_to_short_code_char(keycode);
+
         if (next_char != '\0') {
             if (IS_ENABLED(CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE) && expander_data.current_short_len > 0) {
                 char temp_short[MAX_SHORT_LEN];
@@ -145,14 +145,13 @@ void text_expander_processor_work_handler(struct k_work *work) {
             add_to_current_short(next_char);
         } else if (keycode == HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE) {
             if (expander_data.current_short_len > 0) {
-                LOG_DBG("Backspace pressed, removing char from short code.");
                 expander_data.current_short_len--;
                 expander_data.current_short[expander_data.current_short_len] = '\0';
-                LOG_DBG("Short code now: '%s'", expander_data.current_short);
+                LOG_DBG("Backspace pressed. Short code now: '%s'", expander_data.current_short);
             }
         } else if (!is_ignorable_for_reset(keycode)) {
-            LOG_DBG("Reset-triggering key pressed (keycode: %d)", keycode);
             if (expander_data.current_short_len > 0) {
+                LOG_DBG("Resetting short code due to non-ignorable key press (keycode: %d)", keycode);
                 reset_current_short();
             }
         }
@@ -163,7 +162,6 @@ void text_expander_processor_work_handler(struct k_work *work) {
 
 static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *binding,
                                                 struct zmk_behavior_binding_event binding_event) {
-    LOG_INF("Expansion trigger pressed, current short: '%s'", expander_data.current_short);
     k_mutex_lock(&expander_data.mutex, K_FOREVER);
     if (expander_data.current_short_len > 0) {
         const struct trie_node *node = trie_search(expander_data.current_short);
@@ -174,8 +172,6 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
                 strncpy(short_copy, expander_data.current_short, sizeof(short_copy) - 1);
                 short_copy[sizeof(short_copy) - 1] = '\0';
 
-                LOG_INF("Found expansion: '%s' -> '%s'", short_copy, expanded_ptr);
-
                 size_t short_len = strlen(short_copy);
                 uint8_t len_to_delete = short_len;
                 const char *text_for_engine = expanded_ptr;
@@ -183,21 +179,20 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
                 if (strncmp(expanded_ptr, short_copy, short_len) == 0) {
                     text_for_engine = expanded_ptr + short_len;
                     len_to_delete = 0;
-                    LOG_DBG("Optimized expansion, typing: '%s'", text_for_engine);
+                    LOG_INF("Found completion: '%s' -> '%s'", short_copy, expanded_ptr);
+                } else {
+                    LOG_INF("Found replacement: '%s' -> '%s'", short_copy, expanded_ptr);
                 }
 
                 reset_current_short();
                 
-                int ret = start_expansion(&expander_data.expansion_work_item, short_copy, text_for_engine, len_to_delete);
+                start_expansion(&expander_data.expansion_work_item, short_copy, text_for_engine, len_to_delete);
                 k_mutex_unlock(&expander_data.mutex);
 
-                if (ret < 0) {
-                    LOG_ERR("Failed to start expansion: %d", ret);
-                }
                 return ZMK_BEHAVIOR_OPAQUE;
             }
         } else {
-            LOG_INF("No expansion found for '%s', resetting", expander_data.current_short);
+            LOG_INF("No expansion found for '%s', resetting.", expander_data.current_short);
             reset_current_short();
         }
     } else {
@@ -209,7 +204,6 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
 
 static int text_expander_keymap_binding_released(struct zmk_behavior_binding *binding,
                                                  struct zmk_behavior_binding_event binding_event) {
-    LOG_DBG("Binding released");
     return ZMK_BEHAVIOR_TRANSPARENT;
 }
 
@@ -222,23 +216,30 @@ static const struct behavior_driver_api text_expander_driver_api = {
 };
 
 static int text_expander_init(const struct device *dev) {
-    if (expander_data.root == NULL) {
-        LOG_INF("Initializing text expander module");
-        k_mutex_init(&expander_data.mutex);
-        k_msgq_init(&expander_data.key_event_msgq, expander_data.key_event_msgq_buffer,
-                    sizeof(struct text_expander_key_event), KEY_EVENT_QUEUE_SIZE);
-        
-        memset(expander_data.current_short, 0, MAX_SHORT_LEN);
-        expander_data.current_short_len = 0;
-        
-        expander_data.root = zmk_text_expander_trie_root;
-        if (expander_data.root == NULL) {
-             LOG_WRN("Text expander trie root is NULL. No expansions were generated.");
-        }
-        
-        k_work_init_delayable(&expander_data.expansion_work_item.work, expansion_work_handler);
+    static bool initialized = false;
+    if (initialized) {
+        return 0;
     }
-    LOG_INF("Text expander initialization complete for device %s.", dev->name);
+
+    LOG_INF("Initializing ZMK Text Expander module");
+    k_mutex_init(&expander_data.mutex);
+    
+    k_msgq_init(&expander_data.key_event_msgq, expander_data.key_event_msgq_buffer,
+                sizeof(struct text_expander_key_event), KEY_EVENT_QUEUE_SIZE);
+    
+    memset(expander_data.current_short, 0, MAX_SHORT_LEN);
+    expander_data.current_short_len = 0;
+    
+    if (zmk_text_expander_trie_num_nodes > 0) {
+         expander_data.root = &zmk_text_expander_trie_nodes[0];
+    } else {
+         LOG_WRN("Text expander trie is empty. No expansions were defined or generated.");
+         expander_data.root = NULL;
+    }
+    
+    k_work_init_delayable(&expander_data.expansion_work_item.work, expansion_work_handler);
+    initialized = true;
+    
     return 0;
 }
 

@@ -1,37 +1,53 @@
 #include <zephyr/logging/log.h>
 #include <zmk/trie.h>
+#include <stddef.h>
 
 LOG_MODULE_REGISTER(trie, LOG_LEVEL_DBG);
 
-/**
- * @brief Maps a character to its corresponding index in the trie's children array.
- * @note This logic is intentionally mirrored in the build script at scripts/gen_trie.py.
- * Any changes to the character set or mapping must be synchronized there.
- */
-static int char_to_trie_index(char c) {
-    if (c >= 'a' && c <= 'z') {
-        return c - 'a';
-    } else if (c >= '0' && c <= '9') {
-        return 26 + (c - '0');
-    }
-    return -1;
+static const struct trie_node *get_node(uint16_t index) {
+    return &zmk_text_expander_trie_nodes[index];
 }
 
 const struct trie_node *trie_get_node_for_key(const char *key) {
-    if (!key) return NULL;
+    if (!key || zmk_text_expander_trie_num_nodes == 0) {
+        return NULL;
+    }
 
-    const struct trie_node *current = zmk_text_expander_trie_root;
+    const struct trie_node *current_node = get_node(0);
+
     for (int i = 0; key[i] != '\0'; i++) {
-        int index = char_to_trie_index(key[i]);
-        if (index == -1) return NULL;
+        char current_char = key[i];
 
-        uint16_t child_index = current->children[index];
-        if (child_index == TRIE_NULL_CHILD) {
+        if (current_node->hash_table_index == NULL_INDEX) {
             return NULL;
         }
-        current = &zmk_text_expander_trie_root[child_index];
+
+        const struct trie_hash_table *ht = &zmk_text_expander_hash_tables[current_node->hash_table_index];
+        if (ht->num_buckets == 0) {
+            return NULL;
+        }
+
+        uint8_t bucket_index = (uint8_t)current_char % ht->num_buckets;
+
+        uint16_t entry_index = zmk_text_expander_hash_buckets[ht->buckets_start_index + bucket_index];
+
+        bool found_child = false;
+        while (entry_index != NULL_INDEX) {
+            const struct trie_hash_entry *entry = &zmk_text_expander_hash_entries[entry_index];
+            if (entry->key == current_char) {
+                current_node = get_node(entry->child_node_index);
+                found_child = true;
+                break;
+            }
+            entry_index = entry->next_entry_index;
+        }
+
+        if (!found_child) {
+            return NULL;
+        }
     }
-    return current;
+
+    return current_node;
 }
 
 const struct trie_node *trie_search(const char *key) {

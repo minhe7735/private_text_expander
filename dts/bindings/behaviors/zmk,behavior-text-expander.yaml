@@ -1,3 +1,4 @@
+
 description: Text expander behavior for ZMK
 compatible: "zmk,behavior-text-expander"
 include: zero_param.yaml
@@ -12,11 +13,13 @@ child-binding:
       type: string
       required: true
       description: |
-        The short code that will trigger the expansion. Must contain only
-        lowercase letters (a-z) and numbers (0-9).
+        The short code that will trigger the expansion. Can contain any printable
+        ASCII characters.
         
     expanded_text:
       type: string  
       required: true
       description: |
         The text that the short code will expand to.
+
+

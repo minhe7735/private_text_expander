@@ -1,3 +1,4 @@
+
 if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
   if(CONFIG_ZMK_TEXT_EXPANDER)
     
@@ -35,6 +36,8 @@ if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
       ${GENERATED_TRIE_C}
     )
     
+    # Add the binary directory to the include paths so the generated header can be found.
     zephyr_library_include_directories(include ${CMAKE_CURRENT_BINARY_DIR})
   endif()
 endif()
+

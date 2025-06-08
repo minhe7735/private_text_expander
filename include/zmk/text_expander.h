@@ -1,3 +1,4 @@
+
 #ifndef ZMK_TEXT_EXPANDER_H
 #define ZMK_TEXT_EXPANDER_H
 
@@ -5,16 +6,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "generated_trie.h"
 #include <zmk/trie.h>
 #include <zmk/expansion_engine.h>
+#include "generated_trie.h" // Include the auto-generated header
 
+// Use the generated length for the buffer, plus one for the null terminator.
+// If no expansions are defined, default to a reasonable small size to prevent build errors.
 #if ZMK_TEXT_EXPANDER_GENERATED_MAX_SHORT_LEN > 0
 #define MAX_SHORT_LEN (ZMK_TEXT_EXPANDER_GENERATED_MAX_SHORT_LEN + 1)
 #else
-#define MAX_SHORT_LEN 16
+#define MAX_SHORT_LEN 16 
 #endif
 
+// These Kconfig options are still valid for controlling other behaviors.
 #define TYPING_DELAY CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY
 #define KEY_EVENT_QUEUE_SIZE CONFIG_ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE
 
@@ -36,3 +40,4 @@ struct text_expander_data {
 extern struct text_expander_data expander_data;
 
 #endif /* ZMK_TEXT_EXPANDER_H */
+
