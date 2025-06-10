@@ -39,13 +39,6 @@ config ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR
       If the short code is reset (e.g., in aggressive mode), the character
       that caused the reset will be used to start a new short code.
 
-config ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION
-    bool "Disable the default 'exp' -> 'expanded' expansion"
-    default n
-    help
-      If enabled, the module will not load the default sample expansion
-      if no other expansions are defined by the user.
-
 config ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY
     bool "Enable Ultra Low Memory Mode"
     default n

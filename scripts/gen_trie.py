@@ -17,6 +17,7 @@ class TrieNode:
         self.children = {}
         self.is_terminal = False
         self.expanded_text = None
+        self.preserve_trigger = True # This will be set properly during the build
 
 def build_trie_from_expansions(expansions):
     """Builds a Python-based trie from the dictionary of expansions."""
@@ -29,6 +30,7 @@ def build_trie_from_expansions(expansions):
             node = node.children[char]
         node.is_terminal = True
         node.expanded_text = expansion_data['text']
+        node.preserve_trigger = expansion_data['preserve_trigger']
     return root
 
 def parse_dts_for_expansions(dts_path_str):
@@ -38,17 +40,31 @@ def parse_dts_for_expansions(dts_path_str):
         dt = dtlib.DT(dts_path_str)
 
         def process_expander_node(expander_node):
+            # Determine the global default for preserving triggers
+            global_preserve_default = "disable-preserve-trigger" not in expander_node.props
+
             for child in expander_node.nodes.values():
                 if "short-code" in child.props and "expanded-text" in child.props:
                     short_code = child.props["short-code"].to_string()
                     if ' ' in short_code:
                         print(f"Warning: The short code '{short_code}' contains a space, which is a reset character and cannot be used. Skipping this expansion.", file=sys.stderr)
                         continue
-                    
+
                     expanded_text = child.props["expanded-text"].to_string()
-                    
-                    expansions[short_code] = { "text": expanded_text }
-        
+
+                    # Logic for per-expansion override
+                    if "preserve-trigger" in child.props:
+                        final_preserve_setting = True
+                    elif "disable-preserve-trigger" in child.props:
+                        final_preserve_setting = False
+                    else:
+                        final_preserve_setting = global_preserve_default
+
+                    expansions[short_code] = {
+                        "text": expanded_text,
+                        "preserve_trigger": final_preserve_setting
+                    }
+
         for node in dt.node_iter():
             if "compatible" not in node.props:
                 continue
@@ -59,7 +75,7 @@ def parse_dts_for_expansions(dts_path_str):
                 compat_strings.append(compatible_prop.to_string())
             elif compatible_prop.type == dtlib.Type.STRINGS:
                 compat_strings.extend(compatible_prop.to_strings())
-            
+
             if "zmk,behavior-text-expander" in compat_strings:
                 process_expander_node(node)
 
@@ -108,11 +124,11 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
 """
 
     root = build_trie_from_expansions(expansions)
-    
-    string_pool = ""
+
+    string_pool_builder = []
     c_trie_nodes, c_hash_tables, c_hash_buckets, c_hash_entries = [], [], [], []
     node_q, node_map = [root], {id(root): 0}
-    
+
     while node_q:
         py_node = node_q.pop(0)
         c_trie_nodes.append(py_node)
@@ -142,52 +158,55 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
 
         expanded_text_offset = NULL_INDEX
         if py_node.is_terminal:
-            expanded_text_offset = len(string_pool)
-            string_pool += py_node.expanded_text + '\0'
-        
+            expanded_text_offset = len("".join(string_pool_builder))
+            string_pool_builder.append(py_node.expanded_text + '\0')
+
         py_node.c_struct_data = {
             "hash_table_index": hash_table_index,
             "expanded_text_offset": expanded_text_offset,
             "is_terminal": 1 if py_node.is_terminal else 0,
+            "preserve_trigger": 1 if py_node.preserve_trigger else 0,
         }
 
     c_parts = ["#include <zmk/trie.h>\n#include <stddef.h> // For NULL\n\n"]
     c_parts.append(f"const uint16_t zmk_text_expander_trie_num_nodes = {len(c_trie_nodes)};\n\n")
+
+    string_pool = "".join(string_pool_builder)
     escaped_string_pool = escape_for_c_string(string_pool)
     c_parts.append(f'const char zmk_text_expander_string_pool[] = "{escaped_string_pool}";\n\n')
-    
+
     c_parts.append("const struct trie_node zmk_text_expander_trie_nodes[] = {\n")
     for py_node in c_trie_nodes:
         d = py_node.c_struct_data
-        c_parts.append(f"    {{ .hash_table_index = {d['hash_table_index']}, .expanded_text_offset = {d['expanded_text_offset']}, .is_terminal = {d['is_terminal']} }},\n")
+        c_parts.append(f"    {{ .hash_table_index = {d['hash_table_index']}, .expanded_text_offset = {d['expanded_text_offset']}, .is_terminal = {d['is_terminal']}, .preserve_trigger = {d['preserve_trigger']} }},\n")
     c_parts.append("};\n\n")
 
     c_parts.append("const struct trie_hash_table zmk_text_expander_hash_tables[] = {\n")
     for ht in c_hash_tables:
         c_parts.append(f"    {{ .buckets_start_index = {ht['buckets_start_index']}, .num_buckets = {ht['num_buckets']} }},\n")
     c_parts.append("};\n\n")
-    
+
     c_parts.append("const uint16_t zmk_text_expander_hash_buckets[] = {\n    " + ", ".join(map(str, c_hash_buckets)) + "\n};\n\n")
-    
+
     c_parts.append("const struct trie_hash_entry zmk_text_expander_hash_entries[] = {\n")
     for entry in c_hash_entries:
         escaped_key = entry['key'].replace('\\', '\\\\').replace("'", "\\'")
         c_parts.append(f"    {{ .key = '{escaped_key}', .child_node_index = {entry['child_node_index']}, .next_entry_index = {entry['next_entry_index']} }},\n")
     c_parts.append("};\n\n")
-    
+
     c_parts.append("const char *zmk_text_expander_get_string(uint16_t offset) {\n")
     c_parts.append("    if (offset >= sizeof(zmk_text_expander_string_pool)) return NULL;\n")
     c_parts.append("    return &zmk_text_expander_string_pool[offset];\n}\n")
-    
+
     return "".join(c_parts)
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Usage: python gen_trie.py <build_dir> <output_c_file> <output_h_file>")
         sys.exit(1)
-    
+
     build_dir, output_c_path, output_h_path = sys.argv[1], sys.argv[2], sys.argv[3]
-    
+
     build_path = Path(build_dir)
     dts_files = list(build_path.rglob('zephyr.dts'))
 
@@ -199,7 +218,7 @@ if __name__ == "__main__":
 
     dts_path = dts_files[0]
     expansions = parse_dts_for_expansions(str(dts_path))
-    
+
     c_code = generate_static_trie_c_code(expansions)
     with open(output_c_path, 'w') as f:
         f.write(c_code)

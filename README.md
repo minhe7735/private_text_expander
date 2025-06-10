@@ -2,32 +2,34 @@
 ![zmkiscool](https://github.com/user-attachments/assets/bacdf566-406d-4f88-afa0-e91c9ae1f414)
 ## What is This?
 
-The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It lets you type a short abbreviation (like "eml"), and have it automatically turn into a longer phrase (like "my.long.email.address@example.com"). It's perfect for things you type often!
+The ZMK Text Expander is a powerful feature for your ZMK-powered keyboard. It lets you type a short abbreviation (like "eml"), and have it automatically turn into a longer phrase (like "my.long.email.address@example.com"). It's perfect for things you type often\!
 
 ## Cool Things It Can Do
 
   * **Your Own Shortcuts:** Create your own personal list of short codes and what they expand into.
   * **Fast & Smart:** Uses a speedy lookup method (a trie) to find your expansions quickly.
   * **Works Smoothly:** Typing out your long text happens in the background, so your keyboard stays responsive.
-  * **Custom Typing Feel:** You can adjust how it types, like how it resets if you type something that's not a shortcut.
+  * **Flexible Trigger Behavior:** Set a global default for whether to "replay" the trigger key (like spacebar), and override it for specific expansions.
   * **Easy Setup:** Add your expansions directly in your keyboard's configuration files.
 
 ## How to Use It (The Basics)
 
 1.  **Type Your Short Code:** As you type letters (a-z) and numbers (0-9), the text expander remembers them.
-      * For example, if you have a shortcut "brb" -> "be right back", you'd type `b`, then `r`, then `b`.
+      * For example, if you have a shortcut "brb" -\> "be right back", you'd type `b`, then `r`, then `b`.
 2.  **Trigger the Expansion:** Press a key you've configured to trigger expansions. This can be a dedicated manual trigger key or an automatic trigger key like `Space` or `Enter`.
-3.  **Magic!**
+3.  **Magic\!**
       * If the text expander recognizes your short code, its behavior will change depending on how you've defined the expansion. It operates in two modes: **Text Replacement** or **Text Completion**.
       * **Text Replacement Mode:** This is the default behavior. If your `expanded-text` does **not** start with your `short-code`, the module will:
         1.  Automatically "backspace" to delete the short code you typed (and the trigger character).
         2.  Type out the full `expanded-text`.
-        3.  Replay the trigger key you pressed (e.g., it will type a `space` if you triggered with the spacebar).
-        * *Example:* An expansion like `sig` -> `- Kindly, Me` triggered with the `spacebar` will delete `sig ` and type `- Kindly, Me `.
+        3.  Replay the trigger key you pressed (e.g., it will type a `space` if you triggered with the spacebar), unless configured otherwise.
+        <!-- end list -->
+          * *Example:* An expansion like `sig` -\> `- Kindly, Me` triggered with the `spacebar` will delete ` sig  ` and type ` - Kindly, Me  `.
       * **Text Completion Mode:** This behavior is triggered automatically if your `expanded-text` **does** start with your `short-code`. In this case, the module will:
         1.  Type out only the *rest* of the `expanded-text` immediately after what you typed.
-        2.  Replay the trigger key you pressed.
-        * *Example:* An expansion like `wip` -> `wip project` triggered with the `spacebar` will keep `wip` on your screen and type ` project ` right after it.
+        2.  Replay the trigger key you pressed, unless configured otherwise.
+        <!-- end list -->
+          * *Example:* An expansion like `wip` -\> `wip project` triggered with the `spacebar` will keep `wip` on your screen and type `project` right after it.
       * If the module doesn't recognize the short code, the trigger key will behave as it normally does.
 4.  **Clearing Your Typed Short Code:**
       * Pressing a non-alphanumeric key that is *not* an auto-expand trigger will clear the current short code buffer.
@@ -49,28 +51,28 @@ The main way to add your text expansions is through your ZMK keymap file (often 
             compatible = "zmk,behavior-text-expander";
 
             // --- OPTIONAL TOP-LEVEL SETTINGS ---
-
-            // CORRECT SYNTAX: Use keycode macros like SPACE, ENTER, etc., inside the < >.
             auto-expand-keycodes = <SPACE ENTER TAB>;
-
-            // CORRECT SYNTAX: Use the BSPC macro for backspace.
-            undo-keycode = <BSPC>;
-
+            undo-keycodes = <BSPC>; // Can be a list, e.g., <BSPC GRAVE>
             reset-keycodes = <ESC>;
-            
-            // By default, the trigger key is preserved. To disable this, uncomment the following line.
-            // disable-preserve-trigger;
+
+            // Set the global default to NOT preserve the trigger key.
+            // By default, triggers ARE preserved.
+            disable-preserve-trigger;
 
 
             // --- EXPANSION DEFINITIONS ---
             expansion_email: my_email {
                 short-code = "eml";
                 expanded-text = "my.personal.email@example.com";
+                // This expansion will follow the global default (disabled).
             };
 
             expansion_signature: my_signature {
                 short-code = "sig";
                 expanded-text = "- Jane Doe\nSent from my custom keyboard";
+                // This specific expansion will OVERRIDE the global default
+                // and PRESERVE the trigger key.
+                preserve-trigger;
             };
         };
     };
@@ -83,7 +85,7 @@ The main way to add your text expansions is through your ZMK keymap file (often 
         };
     };
 };
-````
+```
 
 **Important:**
 
@@ -122,9 +124,9 @@ Once your Zephyr environment includes these fixes (by using one of the options a
 You can fine-tune the text expander's behavior by adding the following options to your `config/<your_keyboard_name>.conf` file. You must first enable the module with `CONFIG_ZMK_TEXT_EXPANDER=y`.
 
   * `CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY`: The delay in milliseconds between each typed character during expansion (Default: 10).
-  * `CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE`: If on, the current short code is reset immediately if it doesn't match a valid prefix of any stored expansion.
-  * `CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR`: If the short code is reset (e.g., in aggressive mode), the character that caused the reset will start a new short code.
-  * `CONFIG_ZMK_TEXT_EXPANDER_NO_DEFAULT_EXPANSION`: If set to `y`, the module will not load the default sample expansion (`exp` -\> `expanded`) if no other expansions are defined.
+  * `CONFIG_ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE`: Sets the size of the internal buffer for key events (Default: 16). If you are a very fast typist and see `"Failed to queue key event"` warnings in the logs, you may need to increase this value.
+  * `CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE`: If enabled, the current short code is reset immediately if it doesn't match a valid prefix of any stored expansion. This gives you instant feedback on typos.
+  * `CONFIG_ZMK_TEXT_EXPANDER_RESTART_AFTER_RESET_WITH_TRIGGER_CHAR`: Used with the aggressive mode. If the short code is reset, the character that caused the reset will automatically start a new short code. Without this, the invalid character is simply consumed.
   * `CONFIG_ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY`: A special mode that reduces memory usage by removing the large character-to-keycode lookup table. In this updated version, this mode still supports basic letters, numbers, and a wide range of common special characters (like `!@#$%-=_+[]{}`, etc.), making it a practical choice for memory-constrained devices.
 
 ## Getting it into Your ZMK Build

@@ -13,7 +13,7 @@
 #if ZMK_TEXT_EXPANDER_GENERATED_MAX_SHORT_LEN > 0
 #define MAX_SHORT_LEN (ZMK_TEXT_EXPANDER_GENERATED_MAX_SHORT_LEN + 1)
 #else
-#define MAX_SHORT_LEN 16 
+#define MAX_SHORT_LEN 16
 #endif
 
 #define TYPING_DELAY CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY
@@ -33,7 +33,7 @@ struct text_expander_data {
   struct k_msgq key_event_msgq;
   char key_event_msgq_buffer[KEY_EVENT_QUEUE_SIZE * sizeof(struct text_expander_key_event)];
 
-#if DT_INST_NODE_HAS_PROP(0, undo_keycode)
+#if DT_INST_NODE_HAS_PROP(0, undo_keycodes)
   char last_short_code[MAX_SHORT_LEN];
   const char *last_expanded_text;
   uint16_t last_trigger_keycode;

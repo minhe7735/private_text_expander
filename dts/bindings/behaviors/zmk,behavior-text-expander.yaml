@@ -3,11 +3,11 @@ compatible: "zmk,behavior-text-expander"
 include: zero_param.yaml
 
 properties:
-  undo-keycode:
-    type: int
+  undo-keycodes:
+    type: array
     required: false
-    description: "The single keycode that triggers an undo of the last expansion."
-  
+    description: "A list of keycodes that will trigger an undo of the last expansion."
+
   reset-keycodes:
     type: array
     required: false
@@ -22,19 +22,28 @@ properties:
     type: boolean
     required: false
     description: |
-      If present, this flag disables the default behavior of replaying a
-      trigger key (like space or enter) after an expansion. When disabled,
-      the trigger key is simply consumed.
+      If present, this flag sets the global default to NOT replay a
+      trigger key (like space or enter) after an expansion. The default
+      behavior without this flag is to preserve the trigger. This can be
+      overridden on a per-expansion basis.
 
 child-binding:
   description: |
     Text expansion definition. Each child node defines a short code and
     its corresponding expanded text.
-    
+
   properties:
     short-code:
       type: string
       required: true
     expanded-text:
-      type: string  
+      type: string
       required: true
+    preserve-trigger:
+      type: boolean
+      required: false
+      description: "Explicitly preserves the trigger key for this expansion, overriding the global default."
+    disable-preserve-trigger:
+      type: boolean
+      required: false
+      description: "Explicitly disables preserving the trigger key for this expansion, overriding the global default."
