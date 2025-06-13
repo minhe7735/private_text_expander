@@ -135,8 +135,8 @@ static void add_to_current_short(char c) {
         expander_data.current_short[expander_data.current_short_len] = '\0';
         LOG_DBG("Added '%c' to short code, now: '%s'", c, expander_data.current_short);
     } else {
-        LOG_WRN("Short code buffer full, resetting.");
-        reset_current_short();
+        // Buffer is full. Silently ignore subsequent characters.
+        LOG_WRN("Short code buffer full. Ignoring character '%c'.", c);
     }
 }
 
