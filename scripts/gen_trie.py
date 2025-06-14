@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import re
 
 try:
     from devicetree import dtlib
@@ -18,6 +19,25 @@ class TrieNode:
         self.is_terminal = False
         self.expanded_text = None
         self.preserve_trigger = True # This will be set properly during the build
+
+def parse_unicode_commands(text):
+    """
+    Finds all instances of {{u:XXXX}} in a string and replaces them
+    with the corresponding native Unicode character.
+    """
+    if text is None:
+        return ""
+        
+    def replace_match(match):
+        # Extract the hex code from the matched group
+        hex_code = match.group(1)
+        # Convert hex to an integer, then to a character
+        return chr(int(hex_code, 16))
+
+    # Pattern to find one or more hex digits inside {{u:...}}
+    pattern = re.compile(r"\{\{u:([0-9a-fA-F]+)\}\}")
+    
+    return pattern.sub(replace_match, text)
 
 def build_trie_from_expansions(expansions):
     """Builds a Python-based trie from the dictionary of expansions."""
@@ -60,8 +80,11 @@ def parse_dts_for_expansions(dts_path_str):
                     else:
                         final_preserve_setting = global_preserve_default
 
+                    # --- NEW --- Pre-process the text to handle {{u:XXXX}} commands
+                    processed_text = parse_unicode_commands(expanded_text)
+
                     expansions[short_code] = {
-                        "text": expanded_text,
+                        "text": processed_text,
                         "preserve_trigger": final_preserve_setting
                     }
 
@@ -141,36 +164,6 @@ const uint16_t zmk_text_expander_hash_buckets[] = {};
 const char zmk_text_expander_string_pool[] = "";
 const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
 """
-    # Pre-process all expanded_text to convert literal unicode to commands,
-    # making the process seamless for the end user.
-    for short_code, expansion_data in expansions.items():
-        original_text = expansion_data['text']
-        if not original_text: continue
-        
-        new_text = []
-        i = 0
-        while i < len(original_text):
-            # Pass through existing {{...}} commands untouched.
-            if original_text[i:i+2] == '{{':
-                end_index = original_text.find('}}', i)
-                if end_index != -1:
-                    new_text.append(original_text[i:end_index+2])
-                    i = end_index + 2
-                    continue
-            
-            char = original_text[i]
-            # If a character is non-ASCII, convert it to a {{u:XXXX}} command.
-            if ord(char) > 127:
-                # Correctly format the command without extra quotes.
-                new_text.append(f"{{{{u:{ord(char):04x}}}}}")
-            else:
-                new_text.append(char)
-            i += 1
-        
-        # Update the expansion data with the processed text before building the trie
-        expansion_data['text'] = "".join(new_text)
-
-
     root = build_trie_from_expansions(expansions)
 
     string_pool_builder = []
@@ -214,7 +207,8 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
 
         expanded_text_offset = NULL_INDEX
         if py_node.is_terminal:
-            expanded_text_offset = len("".join(string_pool_builder))
+            current_pool_str = "".join(string_pool_builder)
+            expanded_text_offset = len(current_pool_str.encode('utf-8'))
             string_pool_builder.append(py_node.expanded_text + '\0')
 
         py_node.c_struct_data = {

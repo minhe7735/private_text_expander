@@ -19,8 +19,6 @@ LOG_MODULE_REGISTER(text_expander, LOG_LEVEL_DBG);
 
 #define EXPANDER_INST DT_DRV_INST(0)
 
-#define NO_EXTRA_BACKSPACES 0
-#define ONE_EXTRA_BACKSPACE 1
 #define NO_REPLAY_KEY 0
 #define ZMK_HID_USAGE_ID_MASK 0xFFFF
 
@@ -88,7 +86,7 @@ static void reset_current_short(void) {
     expander_data.current_short_len = 0;
 }
 
-static bool trigger_expansion(const char *short_code, uint8_t backspace_extra, uint16_t trigger_keycode) {
+static bool trigger_expansion(const char *short_code, enum expansion_context context, uint16_t trigger_keycode) {
     LOG_DBG("Attempting to trigger expansion for '%s'", short_code);
 
     const struct trie_node *node = trie_search(short_code);
@@ -104,12 +102,12 @@ static bool trigger_expansion(const char *short_code, uint8_t backspace_extra, u
     }
 
     size_t short_len = strlen(short_code);
-    uint8_t len_to_delete = short_len + backspace_extra;
+    uint8_t len_to_delete = short_len + (context == EXPAND_FROM_AUTO_TRIGGER ? 1 : 0);
     const char *text_for_engine = expanded_ptr;
 
     if (strncmp(expanded_ptr, short_code, short_len) == 0) {
         text_for_engine = expanded_ptr + short_len;
-        len_to_delete = backspace_extra;
+        len_to_delete = (context == EXPAND_FROM_AUTO_TRIGGER ? 1 : 0);
         LOG_INF("Found completion: '%s' -> '%s'", short_code, expanded_ptr);
     } else {
         LOG_INF("Found replacement: '%s' -> '%s'", short_code, expanded_ptr);
@@ -254,7 +252,7 @@ static void handle_backspace() {
 static void handle_auto_expand(uint16_t keycode) {
     LOG_DBG("Handling auto-expand trigger for keycode 0x%04X", keycode);
     if (expander_data.current_short_len > 0) {
-        if (!trigger_expansion(expander_data.current_short, ONE_EXTRA_BACKSPACE, keycode)) {
+        if (!trigger_expansion(expander_data.current_short, EXPAND_FROM_AUTO_TRIGGER, keycode)) {
             LOG_DBG("Auto-expand failed for '%s', resetting buffer.", expander_data.current_short);
             reset_current_short();
         }
@@ -280,7 +278,7 @@ static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *bin
     k_mutex_lock(&expander_data.mutex, K_FOREVER);
 
     if (expander_data.current_short_len > 0) {
-        if (!trigger_expansion(expander_data.current_short, NO_EXTRA_BACKSPACES, NO_REPLAY_KEY)) {
+        if (!trigger_expansion(expander_data.current_short, EXPAND_FROM_MANUAL_TRIGGER, NO_REPLAY_KEY)) {
             LOG_INF("No expansion found for '%s', resetting.", expander_data.current_short);
             reset_current_short();
         }
@@ -306,6 +304,10 @@ static const struct behavior_driver_api text_expander_driver_api = {
 
 static int text_expander_init(const struct device *dev) {
     static bool initialized = false;
+    // Bring all OS drivers into scope from expansion_engine.c
+    extern const struct os_typing_driver win_driver;
+    extern const struct os_typing_driver mac_driver;
+    extern const struct os_typing_driver linux_driver;
     if (initialized) { return 0; }
 
     LOG_INF("Initializing ZMK Text Expander module");
@@ -313,8 +315,18 @@ static int text_expander_init(const struct device *dev) {
     k_msgq_init(&expander_data.key_event_msgq, expander_data.key_event_msgq_buffer, sizeof(struct text_expander_key_event), KEY_EVENT_QUEUE_SIZE);
 
     reset_current_short();
-    expander_data.unicode_mode = TE_UNICODE_MODE_WINDOWS;
-    LOG_DBG("Default unicode mode set to Windows.");
+
+    // Set default OS driver based on the Kconfig priority
+    #if CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_LINUX
+        expander_data.os_driver = &linux_driver;
+        LOG_DBG("Default OS typing driver set to Linux.");
+    #elif CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_MACOS
+        expander_data.os_driver = &mac_driver;
+        LOG_DBG("Default OS typing driver set to macOS.");
+    #else // This will be true if WINDOWS is enabled or as a final fallback.
+        expander_data.os_driver = &win_driver;
+        LOG_DBG("Default OS typing driver set to Windows.");
+    #endif
 
 #if DT_INST_NODE_HAS_PROP(0, undo_keycodes)
     expander_data.just_expanded = false;

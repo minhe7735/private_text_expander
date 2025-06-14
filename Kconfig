@@ -47,6 +47,27 @@ config ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY
       lookup table. This limits expansions to basic alphanumeric characters and a
       wide range of common symbols.
 
+config ZMK_TEXT_EXPANDER_DEFAULT_OS_LINUX
+    bool "Default to Linux for Unicode input"
+    help
+      Sets the default OS for Unicode text expansion to Linux. This has the
+      highest priority.
+
+config ZMK_TEXT_EXPANDER_DEFAULT_OS_MACOS
+    bool "Default to macOS for Unicode input"
+    depends on !ZMK_TEXT_EXPANDER_DEFAULT_OS_LINUX
+    help
+      Sets the default OS for Unicode text expansion to macOS. This option
+      is ignored if the Linux default is selected.
+
+config ZMK_TEXT_EXPANDER_DEFAULT_OS_WINDOWS
+    bool "Default to Windows for Unicode input"
+    depends on !ZMK_TEXT_EXPANDER_DEFAULT_OS_LINUX && !ZMK_TEXT_EXPANDER_DEFAULT_OS_MACOS
+    default y
+    help
+      Sets the default OS for Unicode text expansion to Windows. This is the
+      default and is ignored if either the Linux or macOS default is selected.
+
 endif
 
 endmenu

@@ -92,48 +92,46 @@ uint32_t char_to_keycode(char c, bool *needs_shift) {
     else if (c >= 'A' && c <= 'Z') { *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_A + (c - 'A'); }
     else if (c >= '1' && c <= '9') { keycode = HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION + (c - '1'); }
     else if (c == '0') { keycode = HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS; }
-    else {
-        switch (c) {
-            case '\n': keycode = HID_USAGE_KEY_KEYBOARD_RETURN_ENTER; break;
-            case '\t': keycode = HID_USAGE_KEY_KEYBOARD_TAB; break;
-            case ' ':  keycode = HID_USAGE_KEY_KEYBOARD_SPACEBAR; break;
-            case '\b': keycode = HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE; break;
-            case '!': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION; break;
-            case '@': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_2_AND_AT; break;
-            case '#': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_3_AND_HASH; break;
-            case '$': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_4_AND_DOLLAR; break;
-            case '%': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_5_AND_PERCENT; break;
-            case '^': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_6_AND_CARET; break;
-            case '&': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_7_AND_AMPERSAND; break;
-            case '*': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_8_AND_ASTERISK; break;
-            case '(': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_9_AND_LEFT_PARENTHESIS; break;
-            case ')': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS; break;
-            case '-': keycode = HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE; break;
-            case '_': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE; break;
-            case '=': keycode = HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS; break;
-            case '+': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS; break;
-            case '[': keycode = HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE; break;
-            case '{': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE; break;
-            case ']': keycode = HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE; break;
-            case '}': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE; break;
-            case '\\': keycode = HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE; break;
-            case '|': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE; break;
-            case ';': keycode = HID_USAGE_KEY_KEYBOARD_SEMICOLON_AND_COLON; break;
-            case ':': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_SEMICOLON_AND_COLON; break;
-            case '\'': keycode = HID_USAGE_KEY_KEYBOARD_APOSTROPHE_AND_QUOTE; break;
-            case '"': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_APOSTROPHE_AND_QUOTE; break;
-            case ',': keycode = HID_USAGE_KEY_KEYBOARD_COMMA_AND_LESS_THAN; break;
-            case '<': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_COMMA_AND_LESS_THAN; break;
-            case '.': keycode = HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN; break;
-            case '>': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN; break;
-            case '/': keycode = HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK; break;
-            case '?': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK; break;
-            case '`': keycode = HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE; break;
-            case '~': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE; break;
-            default:
-                LOG_WRN("Unsupported character '%c' in low memory mode", c);
-                return 0;
-        }
+    else switch (c) {
+        case '\n': keycode = HID_USAGE_KEY_KEYBOARD_RETURN_ENTER; break;
+        case '\t': keycode = HID_USAGE_KEY_KEYBOARD_TAB; break;
+        case ' ':  keycode = HID_USAGE_KEY_KEYBOARD_SPACEBAR; break;
+        case '\b': keycode = HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE; break;
+        case '!': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_1_AND_EXCLAMATION; break;
+        case '@': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_2_AND_AT; break;
+        case '#': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_3_AND_HASH; break;
+        case '$': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_4_AND_DOLLAR; break;
+        case '%': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_5_AND_PERCENT; break;
+        case '^': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_6_AND_CARET; break;
+        case '&': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_7_AND_AMPERSAND; break;
+        case '*': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_8_AND_ASTERISK; break;
+        case '(': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_9_AND_LEFT_PARENTHESIS; break;
+        case ')': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_0_AND_RIGHT_PARENTHESIS; break;
+        case '-': keycode = HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE; break;
+        case '_': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE; break;
+        case '=': keycode = HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS; break;
+        case '+': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS; break;
+        case '[': keycode = HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE; break;
+        case '{': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE; break;
+        case ']': keycode = HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE; break;
+        case '}': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE; break;
+        case '\\': keycode = HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE; break;
+        case '|': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE; break;
+        case ';': keycode = HID_USAGE_KEY_KEYBOARD_SEMICOLON_AND_COLON; break;
+        case ':': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_SEMICOLON_AND_COLON; break;
+        case '\'': keycode = HID_USAGE_KEY_KEYBOARD_APOSTROPHE_AND_QUOTE; break;
+        case '"': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_APOSTROPHE_AND_QUOTE; break;
+        case ',': keycode = HID_USAGE_KEY_KEYBOARD_COMMA_AND_LESS_THAN; break;
+        case '<': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_COMMA_AND_LESS_THAN; break;
+        case '.': keycode = HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN; break;
+        case '>': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN; break;
+        case '/': keycode = HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK; break;
+        case '?': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK; break;
+        case '`': keycode = HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE; break;
+        case '~': *needs_shift = true; keycode = HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE; break;
+        default:
+            LOG_WRN("Unsupported character '%c' in low memory mode", c);
+            return 0;
     }
 #endif
     LOG_DBG("Converted '%c' to keycode 0x%04X with shift %s", c, keycode, *needs_shift ? "true" : "false");

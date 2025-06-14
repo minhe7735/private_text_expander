@@ -123,6 +123,10 @@ Once your Zephyr environment includes these fixes (by using one of the options a
 
 You can fine-tune the text expander's behavior by adding the following options to your `config/<your_keyboard_name>.conf` file. You must first enable the module with `CONFIG_ZMK_TEXT_EXPANDER=y`.
 
+* **`CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_...`**: Sets the default operating system for Unicode input. You can set one of these to `y` in your `.conf` file. They are mutually exclusive with a priority of Linux > macOS > Windows. For example, if you set both the Linux and macOS options to `y`, the Linux option will be used. If none are set, the default is Windows.
+    * `CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_LINUX=y`
+    * `CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_MACOS=y`
+    * `CONFIG_ZMK_TEXT_EXPANDER_DEFAULT_OS_WINDOWS=y`
 * `CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY`: The delay in milliseconds between each typed character during expansion (Default: 10).
 * `CONFIG_ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE`: Sets the size of the internal buffer for key events (Default: 16). If you are a very fast typist and see `"Failed to queue key event"` warnings in the logs, you may need to increase this value.
 * `CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE`: If enabled, the current short code is reset immediately if it doesn't match a valid prefix of any stored expansion. This gives you instant feedback on typos.
