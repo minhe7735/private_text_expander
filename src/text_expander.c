@@ -6,13 +6,11 @@
 #include <drivers/behavior.h>
 #include <string.h>
 #include <zephyr/logging/log.h>
-
 #include <zmk/behavior.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/hid.h>
 #include <zmk/keymap.h>
-
 #include <zmk/text_expander.h>
 #include <zmk/trie.h>
 #include <zmk/expansion_engine.h>
@@ -91,13 +89,17 @@ static void reset_current_short(void) {
 }
 
 static bool trigger_expansion(const char *short_code, uint8_t backspace_extra, uint16_t trigger_keycode) {
+    LOG_DBG("Attempting to trigger expansion for '%s'", short_code);
+
     const struct trie_node *node = trie_search(short_code);
     if (!node) {
+        LOG_DBG("No expansion found for '%s' in trie.", short_code);
         return false;
     }
 
     const char *expanded_ptr = zmk_text_expander_get_string(node->expanded_text_offset);
     if (!expanded_ptr) {
+        LOG_ERR("Trie node found but expanded text offset %u is invalid.", node->expanded_text_offset);
         return false;
     }
 
@@ -120,10 +122,11 @@ static bool trigger_expansion(const char *short_code, uint8_t backspace_extra, u
     expander_data.last_expanded_text = expanded_ptr;
     expander_data.last_trigger_keycode = keycode_to_replay;
     expander_data.just_expanded = true;
+    LOG_DBG("Saved undo state. Last short: '%s', trigger: 0x%04X", expander_data.last_short_code, keycode_to_replay);
 #endif
 
     reset_current_short();
-    LOG_INF("HANDOFF: Passing text and replay_keycode '%d' to engine", keycode_to_replay);
+    LOG_INF("Passing text to engine. Text: \"%s\", backspaces: %d, replay_keycode: 0x%04X", text_for_engine, len_to_delete, keycode_to_replay);
     start_expansion(&expander_data.expansion_work_item, text_for_engine, len_to_delete, keycode_to_replay);
 
     return true;
@@ -133,22 +136,27 @@ static void add_to_current_short(char c) {
     if (expander_data.current_short_len < MAX_SHORT_LEN - 1) {
         expander_data.current_short[expander_data.current_short_len++] = c;
         expander_data.current_short[expander_data.current_short_len] = '\0';
-        LOG_DBG("Added '%c' to short code, now: '%s'", c, expander_data.current_short);
+        LOG_DBG("Added '%c' to short code, now: '%s' (len: %d)", c, expander_data.current_short, expander_data.current_short_len);
     } else {
-        // Buffer is full. Silently ignore subsequent characters.
-        LOG_WRN("Short code buffer full. Ignoring character '%c'.", c);
+        LOG_WRN("Short code buffer full at length %d. Ignoring character '%c'.", expander_data.current_short_len, c);
     }
 }
 
+
 static int text_expander_keycode_state_changed_listener(const zmk_event_t *eh) {
     struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
-    if (ev == NULL || expander_data.expansion_work_item.state != EXPANSION_STATE_IDLE) {
+    if (ev == NULL) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    if (expander_data.expansion_work_item.state != EXPANSION_STATE_IDLE) {
+        LOG_DBG("Expansion in progress, bubbling event for keycode 0x%04X", ev->keycode);
         return ZMK_EV_EVENT_BUBBLE;
     }
 
     struct text_expander_key_event key_event = { .keycode = ev->keycode, .pressed = ev->state };
     if (k_msgq_put(&expander_data.key_event_msgq, &key_event, K_NO_WAIT) != 0) {
-        LOG_WRN("Failed to queue key event");
+        LOG_WRN("Failed to queue key event for keycode 0x%04X", ev->keycode);
     } else {
         k_work_submit(&text_expander_processor_work);
     }
@@ -167,6 +175,7 @@ static void process_key_event(struct text_expander_key_event *ev) {
     if (!ev->pressed) {
         return;
     }
+    LOG_DBG("Processing key press event, keycode: 0x%04X", ev->keycode);
 
     k_mutex_lock(&expander_data.mutex, K_FOREVER);
 
@@ -195,6 +204,7 @@ static void process_key_event(struct text_expander_key_event *ev) {
 #if DT_INST_NODE_HAS_PROP(0, undo_keycodes)
 static bool handle_undo(uint16_t keycode) {
     if (expander_data.just_expanded) {
+        LOG_DBG("Expansion just happened. Checking for undo keycode 0x%04X.", keycode);
         expander_data.just_expanded = false;
         if (keycode_in_array(keycode, undo_keycodes, ARRAY_SIZE(undo_keycodes))) {
             LOG_INF("Undo triggered. Restoring '%s'", expander_data.last_short_code);
@@ -214,6 +224,7 @@ static bool handle_undo(uint16_t keycode) { return false; }
 #endif
 
 static void handle_alphanumeric(char next_char) {
+    LOG_DBG("Handling alphanumeric char '%c'", next_char);
     add_to_current_short(next_char);
 
     #ifdef CONFIG_ZMK_TEXT_EXPANDER_AGGRESSIVE_RESET_MODE
@@ -232,34 +243,40 @@ static void handle_alphanumeric(char next_char) {
 }
 
 static void handle_backspace() {
+    LOG_DBG("Handling backspace. Current short: '%s'", expander_data.current_short);
     if (expander_data.current_short_len > 0) {
         expander_data.current_short_len--;
         expander_data.current_short[expander_data.current_short_len] = '\0';
+        LOG_DBG("After backspace, short is now: '%s'", expander_data.current_short);
     }
 }
 
 static void handle_auto_expand(uint16_t keycode) {
+    LOG_DBG("Handling auto-expand trigger for keycode 0x%04X", keycode);
     if (expander_data.current_short_len > 0) {
         if (!trigger_expansion(expander_data.current_short, ONE_EXTRA_BACKSPACE, keycode)) {
+            LOG_DBG("Auto-expand failed for '%s', resetting buffer.", expander_data.current_short);
             reset_current_short();
         }
     }
 }
 
 static void handle_reset_key() {
+    LOG_DBG("Handling reset key. Current short: '%s'", expander_data.current_short);
     if (expander_data.current_short_len > 0) {
         reset_current_short();
     }
 }
 
 static void handle_other_key() {
+    LOG_DBG("Handling other key. Current short: '%s'", expander_data.current_short);
     if (expander_data.current_short_len > 0) {
         reset_current_short();
     }
 }
 
-
 static int text_expander_keymap_binding_pressed(struct zmk_behavior_binding *binding, struct zmk_behavior_binding_event binding_event) {
+    LOG_DBG("Manual trigger key pressed.");
     k_mutex_lock(&expander_data.mutex, K_FOREVER);
 
     if (expander_data.current_short_len > 0) {
@@ -296,6 +313,8 @@ static int text_expander_init(const struct device *dev) {
     k_msgq_init(&expander_data.key_event_msgq, expander_data.key_event_msgq_buffer, sizeof(struct text_expander_key_event), KEY_EVENT_QUEUE_SIZE);
 
     reset_current_short();
+    expander_data.unicode_mode = TE_UNICODE_MODE_WINDOWS;
+    LOG_DBG("Default unicode mode set to Windows.");
 
 #if DT_INST_NODE_HAS_PROP(0, undo_keycodes)
     expander_data.just_expanded = false;

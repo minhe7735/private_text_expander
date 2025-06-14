@@ -94,19 +94,38 @@ def get_next_power_of_2(n):
     return p
 
 def escape_for_c_string(text):
-    """Properly escape a string for use in a C string literal, including null chars."""
-    escape_map = {
-        '\\': '\\\\', '"': '\\"', '\n': '\\n', '\t': '\\t', '\r': '\\r', '\0': '\\0',
-    }
+    """
+    Properly escape a Python string for use as a C string literal,
+    correctly handling all Unicode characters by encoding them to UTF-8 bytes
+    and representing each byte as a C-compatible escape sequence.
+    """
+    if text is None:
+        return ""
+    # Encode the entire Python Unicode string into a sequence of UTF-8 bytes.
+    utf8_bytes = text.encode('utf-8')
+
     result = []
-    for char in text:
-        if char in escape_map:
-            result.append(escape_map[char])
-        elif ord(char) < 32 or ord(char) > 126:
-            result.append(f'\\{ord(char):03o}')
+    for byte in utf8_bytes:
+        # Handle special C escape characters: ", \, and standard whitespace.
+        if byte == ord('"'):
+            result.append('\\"')
+        elif byte == ord('\\'):
+            result.append('\\\\')
+        elif byte == ord('\n'):
+            result.append('\\n')
+        elif byte == ord('\t'):
+            result.append('\\t')
+        elif byte == ord('\r'):
+            result.append('\\r')
+        # Keep printable ASCII characters as they are for readability.
+        elif 32 <= byte <= 126:
+            result.append(chr(byte))
+        # Represent all other bytes, including multi-byte UTF-8 sequences and
+        # the null terminator, as octal escape codes.
         else:
-            result.append(char)
-    return ''.join(result)
+            result.append(f'\\{byte:03o}')
+
+    return "".join(result)
 
 def generate_static_trie_c_code(expansions):
     """Generates the C source file content for the static trie and hash tables."""
@@ -122,6 +141,35 @@ const uint16_t zmk_text_expander_hash_buckets[] = {};
 const char zmk_text_expander_string_pool[] = "";
 const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
 """
+    # Pre-process all expanded_text to convert literal unicode to commands,
+    # making the process seamless for the end user.
+    for short_code, expansion_data in expansions.items():
+        original_text = expansion_data['text']
+        if not original_text: continue
+        
+        new_text = []
+        i = 0
+        while i < len(original_text):
+            # Pass through existing {{...}} commands untouched.
+            if original_text[i:i+2] == '{{':
+                end_index = original_text.find('}}', i)
+                if end_index != -1:
+                    new_text.append(original_text[i:end_index+2])
+                    i = end_index + 2
+                    continue
+            
+            char = original_text[i]
+            # If a character is non-ASCII, convert it to a {{u:XXXX}} command.
+            if ord(char) > 127:
+                # Correctly format the command without extra quotes.
+                new_text.append(f"{{{{u:{ord(char):04x}}}}}")
+            else:
+                new_text.append(char)
+            i += 1
+        
+        # Update the expansion data with the processed text before building the trie
+        expansion_data['text'] = "".join(new_text)
+
 
     root = build_trie_from_expansions(expansions)
 
@@ -129,14 +177,22 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
     c_trie_nodes, c_hash_tables, c_hash_buckets, c_hash_entries = [], [], [], []
     node_q, node_map = [root], {id(root): 0}
 
-    while node_q:
-        py_node = node_q.pop(0)
-        c_trie_nodes.append(py_node)
-        for child in py_node.children.values():
+    # First pass to discover all nodes and assign indices
+    head = 0
+    while head < len(node_q):
+        py_node = node_q[head]
+        head += 1
+        for child in sorted(py_node.children.values(), key=id): # Sort for determinism
             if id(child) not in node_map:
                 node_map[id(child)] = len(node_map)
                 node_q.append(child)
 
+    c_trie_nodes = [None] * len(node_q)
+    for py_node in node_q:
+        c_trie_nodes[node_map[id(py_node)]] = py_node
+
+
+    # Second pass to build C structures
     for py_node in c_trie_nodes:
         hash_table_index = NULL_INDEX
         if py_node.children:
@@ -147,7 +203,7 @@ const char *zmk_text_expander_get_string(uint16_t offset) { return NULL; }
             buckets = [NULL_INDEX] * num_buckets
             c_hash_tables.append({"buckets_start_index": buckets_start_index, "num_buckets": num_buckets})
 
-            for char, child_py_node in py_node.children.items():
+            for char, child_py_node in sorted(py_node.children.items()): # Sort for determinism
                 hash_val = ord(char) % num_buckets
                 child_node_index = node_map[id(child_py_node)]
                 new_entry_index = len(c_hash_entries)
@@ -220,7 +276,7 @@ if __name__ == "__main__":
     expansions = parse_dts_for_expansions(str(dts_path))
 
     c_code = generate_static_trie_c_code(expansions)
-    with open(output_c_path, 'w') as f:
+    with open(output_c_path, 'w', encoding='utf-8') as f:
         f.write(c_code)
 
     longest_short_len = len(max(expansions.keys(), key=len)) if expansions else 0
@@ -229,5 +285,5 @@ if __name__ == "__main__":
 // Automatically generated file. Do not edit.
 #define ZMK_TEXT_EXPANDER_GENERATED_MAX_SHORT_LEN {longest_short_len}
 """
-    with open(output_h_path, 'w') as f:
+    with open(output_h_path, 'w', encoding='utf-8') as f:
         f.write(h_file_content)

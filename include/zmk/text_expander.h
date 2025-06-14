@@ -19,6 +19,12 @@
 #define TYPING_DELAY CONFIG_ZMK_TEXT_EXPANDER_TYPING_DELAY
 #define KEY_EVENT_QUEUE_SIZE CONFIG_ZMK_TEXT_EXPANDER_EVENT_QUEUE_SIZE
 
+enum te_unicode_mode {
+    TE_UNICODE_MODE_WINDOWS,
+    TE_UNICODE_MODE_MACOS,
+    TE_UNICODE_MODE_LINUX,
+};
+
 struct text_expander_key_event {
     uint16_t keycode;
     bool pressed;
@@ -32,6 +38,7 @@ struct text_expander_data {
   struct expansion_work expansion_work_item;
   struct k_msgq key_event_msgq;
   char key_event_msgq_buffer[KEY_EVENT_QUEUE_SIZE * sizeof(struct text_expander_key_event)];
+  enum te_unicode_mode unicode_mode;
 
 #if DT_INST_NODE_HAS_PROP(0, undo_keycodes)
   char last_short_code[MAX_SHORT_LEN];

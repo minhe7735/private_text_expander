@@ -5,20 +5,20 @@
 LOG_MODULE_REGISTER(hid_utils, LOG_LEVEL_DBG);
 
 int send_and_flush_key_action(uint32_t keycode, bool pressed) {
-    LOG_DBG("Sending key action: keycode=%d, pressed=%s", keycode, pressed ? "true" : "false");
+    LOG_DBG("Sending key action: keycode=0x%04X, pressed=%s", keycode, pressed ? "true" : "false");
     int ret = send_key_action(keycode, pressed);
     if (ret < 0) {
         LOG_ERR("Failed to send key action: %d", ret);
         return ret;
     }
     
-    LOG_DBG("Flushing HID report");
+    LOG_DBG("Flushing HID report for usage page 0x%02X", HID_USAGE_KEY);
     return zmk_endpoints_send_report(HID_USAGE_KEY);
 }
 
 uint32_t char_to_keycode(char c, bool *needs_shift) {
     *needs_shift = false;
-    LOG_DBG("Converting char '%c' to keycode", c);
+    LOG_DBG("Converting char '%c' (ASCII: %d) to keycode", c, c);
     uint32_t keycode = 0;
 
 #if !defined(CONFIG_ZMK_TEXT_EXPANDER_ULTRA_LOW_MEMORY)
@@ -56,71 +56,27 @@ uint32_t char_to_keycode(char c, bool *needs_shift) {
         ['>' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_PERIOD_AND_GREATER_THAN, 1},
         ['?' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_SLASH_AND_QUESTION_MARK, 1},
         ['@' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_2_AND_AT, 1},
-        ['A' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_A, 1},
-        ['B' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_B, 1},
-        ['C' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_C, 1},
-        ['D' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_D, 1},
-        ['E' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_E, 1},
-        ['F' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_F, 1},
-        ['G' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_G, 1},
-        ['H' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_H, 1},
-        ['I' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_I, 1},
-        ['J' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_J, 1},
-        ['K' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_K, 1},
-        ['L' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_L, 1},
-        ['M' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_M, 1},
-        ['N' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_N, 1},
-        ['O' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_O, 1},
-        ['P' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_P, 1},
-        ['Q' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Q, 1},
-        ['R' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_R, 1},
-        ['S' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_S, 1},
-        ['T' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_T, 1},
-        ['U' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_U, 1},
-        ['V' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_V, 1},
-        ['W' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_W, 1},
-        ['X' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_X, 1},
-        ['Y' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Y, 1},
-        ['Z' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Z, 1},
         ['[' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE, 0},
         ['\\' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE, 0},
         [']' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE, 0},
         ['^' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_6_AND_CARET, 1},
         ['_' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE, 1},
         ['`' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE, 0},
-        ['a' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_A, 0},
-        ['b' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_B, 0},
-        ['c' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_C, 0},
-        ['d' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_D, 0},
-        ['e' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_E, 0},
-        ['f' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_F, 0},
-        ['g' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_G, 0},
-        ['h' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_H, 0},
-        ['i' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_I, 0},
-        ['j' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_J, 0},
-        ['k' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_K, 0},
-        ['l' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_L, 0},
-        ['m' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_M, 0},
-        ['n' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_N, 0},
-        ['o' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_O, 0},
-        ['p' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_P, 0},
-        ['q' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Q, 0},
-        ['r' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_R, 0},
-        ['s' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_S, 0},
-        ['t' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_T, 0},
-        ['u' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_U, 0},
-        ['v' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_V, 0},
-        ['w' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_W, 0},
-        ['x' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_X, 0},
-        ['y' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Y, 0},
-        ['z' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_Z, 0},
         ['{' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_LEFT_BRACKET_AND_LEFT_BRACE, 1},
         ['|' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_BACKSLASH_AND_PIPE, 1},
         ['}' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_RIGHT_BRACKET_AND_RIGHT_BRACE, 1},
         ['~' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_GRAVE_ACCENT_AND_TILDE, 1},
+        ['a' - KEYCODE_LUT_OFFSET ... 'z' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_A, 0},
+        ['A' - KEYCODE_LUT_OFFSET ... 'Z' - KEYCODE_LUT_OFFSET] = {HID_USAGE_KEY_KEYBOARD_A, 1},
     };
 
-    if (c == '\n') { keycode = HID_USAGE_KEY_KEYBOARD_RETURN_ENTER; }
+    if (c >= 'a' && c <= 'z') {
+        *needs_shift = keycode_lut[c - KEYCODE_LUT_OFFSET].needs_shift;
+        keycode = keycode_lut[c - KEYCODE_LUT_OFFSET].keycode + (c - 'a');
+    } else if (c >= 'A' && c <= 'Z') {
+        *needs_shift = keycode_lut[c - KEYCODE_LUT_OFFSET].needs_shift;
+        keycode = keycode_lut[c - KEYCODE_LUT_OFFSET].keycode + (c - 'A');
+    } else if (c == '\n') { keycode = HID_USAGE_KEY_KEYBOARD_RETURN_ENTER; }
     else if (c == '\t') { keycode = HID_USAGE_KEY_KEYBOARD_TAB; }
     else if (c == '\b') { keycode = HID_USAGE_KEY_KEYBOARD_DELETE_BACKSPACE; }
     else if (c < KEYCODE_LUT_OFFSET || c >= (KEYCODE_LUT_OFFSET + KEYCODE_LUT_SIZE)) {
@@ -180,6 +136,6 @@ uint32_t char_to_keycode(char c, bool *needs_shift) {
         }
     }
 #endif
-    LOG_DBG("Converted '%c' to keycode %d with shift %s", c, keycode, *needs_shift ? "true" : "false");
+    LOG_DBG("Converted '%c' to keycode 0x%04X with shift %s", c, keycode, *needs_shift ? "true" : "false");
     return keycode;
 }
